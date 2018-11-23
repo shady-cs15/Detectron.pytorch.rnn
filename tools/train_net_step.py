@@ -156,6 +156,9 @@ def main():
     elif args.dataset == "keypoints_coco2017":
         cfg.TRAIN.DATASETS = ('keypoints_coco_2017_train',)
         cfg.MODEL.NUM_CLASSES = 2
+    elif args.dataset == "epic_small":
+        cfg.TRAIN.DATASETS = ('epic_small_train',)
+        cfg.MODEL.NUM_CLASSES = 352
     else:
         raise ValueError("Unexpected args.dataset: {}".format(args.dataset))
 
@@ -418,7 +421,7 @@ def main():
                     input_data = next(dataiterator)
 
                 for key in input_data:
-                    if key != 'roidb': # roidb is a list of ndarrays with inconsistent length
+                    if key != 'roidb' and key!='im_name': # roidb is a list of ndarrays with inconsistent length
                         input_data[key] = list(map(Variable, input_data[key]))
 
                 net_outputs = maskRCNN(**input_data)

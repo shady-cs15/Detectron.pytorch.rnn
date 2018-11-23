@@ -54,10 +54,13 @@ def flip_segms(segms, height, width):
     if type(segm) == list:
       # Polygon format
       flipped_segms.append([_flip_poly(poly, width) for poly in segm])
-    else:
+    elif type(segm) == dict:
       # RLE format
-      assert type(segm) == dict
       flipped_segms.append(_flip_rle(segm, height, width))
+    elif segm is None:
+      flipped_segms.append(None)
+    else:
+      import pdb; pdb.set_trace();
   return flipped_segms
 
 

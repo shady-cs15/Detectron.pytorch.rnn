@@ -123,6 +123,7 @@ def prep_im_for_blob(im, pixel_means, target_sizes, max_size):
                                 interpolation=cv2.INTER_LINEAR)
         ims.append(im_resized)
         im_scales.append(im_scale)
+   
     return ims, im_scales
 
 

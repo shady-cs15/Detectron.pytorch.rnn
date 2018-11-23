@@ -30,7 +30,7 @@ class RoiDataLoader(data.Dataset):
 
         # Squeeze batch dim
         for key in blobs:
-            if key != 'roidb':
+            if key != 'roidb' and key !='im_name':
                 blobs[key] = blobs[key].squeeze(axis=0)
 
         if self._roidb[index]['need_crop']:
@@ -48,7 +48,6 @@ class RoiDataLoader(data.Dataset):
                 entry['segms'] = [entry['segms'][ind] for ind in valid_inds]
 
         blobs['roidb'] = blob_utils.serialize(blobs['roidb'])  # CHECK: maybe we can serialize in collate_fn
-
         return blobs
 
     def crop_data(self, blobs, ratio):
