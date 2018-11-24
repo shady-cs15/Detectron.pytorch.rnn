@@ -130,6 +130,11 @@ class JsonDataset(object):
             'are not included.'
         image_ids = self.COCO.getImgIds()
         image_ids.sort()
+        
+        # verbose
+        #imgs_to_print = image_ids[:50]
+        #for img_to_print in imgs_to_print:
+        #    print(self.COCO.loadImgs([img_to_print])[0]['file_name'])
         if cfg.DEBUG:
             roidb = copy.deepcopy(self.COCO.loadImgs(image_ids))[:100]
         else:

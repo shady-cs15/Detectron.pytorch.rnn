@@ -101,7 +101,7 @@ __C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
 # tall and thin or both short and wide)
 # This feature is critical for saving memory (and makes training slightly
 # faster)
-__C.TRAIN.ASPECT_GROUPING = True
+__C.TRAIN.ASPECT_GROUPING = False
 
 # Crop images that have too small or too large aspect ratio
 __C.TRAIN.ASPECT_CROPPING = False

@@ -60,7 +60,8 @@ def parse_args():
         default=20, type=int)
     parser.add_argument(
         '--no_cuda', dest='cuda', help='Do not use CUDA device', action='store_false')
-
+    parser.add_argument(
+        '--cascade', dest='cascaded', help='Use cascade mode', action='store_true')
     # Optimization
     # These options has the highest prioity and can overwrite the values in config file
     # or values set by set_cfgs. `None` means do not overwrite.
@@ -240,7 +241,7 @@ def main():
     train_size = roidb_size // args.batch_size * args.batch_size
 
     batchSampler = BatchSampler(
-        sampler=MinibatchSampler(ratio_list, ratio_index),
+        sampler=MinibatchSampler(ratio_list, ratio_index, args.cascaded),
         batch_size=args.batch_size,
         drop_last=True
     )
@@ -423,7 +424,7 @@ def main():
                 for key in input_data:
                     if key != 'roidb' and key!='im_name': # roidb is a list of ndarrays with inconsistent length
                         input_data[key] = list(map(Variable, input_data[key]))
-
+                import pdb; pdb.set_trace();
                 net_outputs = maskRCNN(**input_data)
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']

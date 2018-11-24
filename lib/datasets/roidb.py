@@ -70,7 +70,8 @@ def combined_roidb_for_training(dataset_names, proposal_files):
         ratio_list, ratio_index = rank_for_training(roidb)
         logger.info('done')
     else:
-        ratio_list, ratio_index = None, None
+        # NOTE temporary fix
+        ratio_list, ratio_index = rank_for_training(roidb)
 
     logger.info('Computing bounding-box regression targets...')
     add_bbox_regression_targets(roidb)

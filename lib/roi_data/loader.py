@@ -144,10 +144,12 @@ def cal_minibatch_ratio(ratio_list):
 
 
 class MinibatchSampler(torch_sampler.Sampler):
-    def __init__(self, ratio_list, ratio_index):
+    def __init__(self, ratio_list, ratio_index, cascaded=False):
         self.ratio_list = ratio_list
         self.ratio_index = ratio_index
         self.num_data = len(ratio_list)
+        print(self.num_data)
+        self.cascaded = cascaded
 
         if cfg.TRAIN.ASPECT_GROUPING:
             # Given the ratio_list, we want to make the ratio same
@@ -160,13 +162,18 @@ class MinibatchSampler(torch_sampler.Sampler):
             n, rem = divmod(self.num_data, cfg.TRAIN.IMS_PER_BATCH)
             round_num_data = n * cfg.TRAIN.IMS_PER_BATCH
             indices = np.arange(round_num_data)
+            if self.cascaded:
+                raise Exception('aspect grouping not supported for cascade mode..')
             npr.shuffle(indices.reshape(-1, cfg.TRAIN.IMS_PER_BATCH))  # inplace shuffle
             if rem != 0:
                 indices = np.append(indices, np.arange(round_num_data, round_num_data + rem))
             ratio_index = self.ratio_index[indices]
             ratio_list_minibatch = self.ratio_list_minibatch[indices]
         else:
-            rand_perm = npr.permutation(self.num_data)
+            if self.cascaded:
+                rand_perm = np.arange(self.num_data)
+            else:
+                rand_perm = npr.permutation(self.num_data)
             ratio_list = self.ratio_list[rand_perm]
             ratio_index = self.ratio_index[rand_perm]
             # re-calculate minibatch ratio list
