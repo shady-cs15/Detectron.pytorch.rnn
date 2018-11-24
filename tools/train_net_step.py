@@ -139,6 +139,8 @@ def save_ckpt(output_dir, args, step, train_size, model, optimizer):
 def allow_configs(args):
     if args.cascaded is True and cfg.TRAIN.ASPECT_GROUPING is True:
         raise Exception('aspect grouping not supported for cascade mode')
+    if args.cascaded is True and cfg.TRAIN.ASPECT_CROPPING is True:
+        raise Exception('aspect cropping not supported for cascade mode')
     if args.batch_size * args.iter_size != cfg.CASCADE.BATCH_SIZE:
         raise Exception('effective batch size should be same as config.CASCADE.BATCH_SIZE')
     print('configs are allowable..')
