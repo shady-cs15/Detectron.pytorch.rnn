@@ -72,6 +72,8 @@ def combined_roidb_for_training(dataset_names, proposal_files):
     else:
         # NOTE temporary fix
         ratio_list, ratio_index = rank_for_training(roidb)
+        assert (ratio_list-ratio_list[0]).sum()<1e-3
+        ratio_index = np.sort(ratio_index)
 
     logger.info('Computing bounding-box regression targets...')
     add_bbox_regression_targets(roidb)

@@ -148,7 +148,6 @@ class MinibatchSampler(torch_sampler.Sampler):
         self.ratio_list = ratio_list
         self.ratio_index = ratio_index
         self.num_data = len(ratio_list)
-        print(self.num_data)
         self.cascaded = cascaded
 
         if cfg.TRAIN.ASPECT_GROUPING:
@@ -162,8 +161,6 @@ class MinibatchSampler(torch_sampler.Sampler):
             n, rem = divmod(self.num_data, cfg.TRAIN.IMS_PER_BATCH)
             round_num_data = n * cfg.TRAIN.IMS_PER_BATCH
             indices = np.arange(round_num_data)
-            if self.cascaded:
-                raise Exception('aspect grouping not supported for cascade mode..')
             npr.shuffle(indices.reshape(-1, cfg.TRAIN.IMS_PER_BATCH))  # inplace shuffle
             if rem != 0:
                 indices = np.append(indices, np.arange(round_num_data, round_num_data + rem))
@@ -171,7 +168,14 @@ class MinibatchSampler(torch_sampler.Sampler):
             ratio_list_minibatch = self.ratio_list_minibatch[indices]
         else:
             if self.cascaded:
-                rand_perm = np.arange(self.num_data)
+                n = self.num_data // (cfg.CASCADE.WIN_LEN * cfg.CASCADE.BATCH_SIZE)
+                indices = np.arange(n * cfg.CASCADE.WIN_LEN * cfg.CASCADE.BATCH_SIZE)
+                indices = indices.reshape(-1, cfg.CASCADE.WIN_LEN)
+                npr.shuffle(indices)
+                import pdb; pdb.set_trace();
+                indices = indices.reshape(-1, cfg.CASCADE.BATCH_SIZE, cfg.CASCADE.WIN_LEN)
+                indices = indices.transpose(0, 2, 1)
+                rand_perm = indices.flatten()
             else:
                 rand_perm = npr.permutation(self.num_data)
             ratio_list = self.ratio_list[rand_perm]

@@ -136,13 +136,19 @@ def save_ckpt(output_dir, args, step, train_size, model, optimizer):
     logger.info('save model: %s', save_name)
 
 
+def allow_configs(args):
+    if args.cascaded is True and cfg.TRAIN.ASPECT_GROUPING is True:
+        raise Exception('aspect grouping not supported for cascade mode')
+    if args.batch_size * args.iter_size != cfg.CASCADE.BATCH_SIZE:
+        raise Exception('effective batch size should be same as config.CASCADE.BATCH_SIZE')
+    print('configs are allowable..')
+    
 def main():
     """Main function"""
 
     args = parse_args()
     print('Called with args:')
     print(args)
-
     if not torch.cuda.is_available():
         sys.exit("Need a CUDA device to run the code.")
 
@@ -227,6 +233,9 @@ def main():
     assert_and_infer_cfg()
 
     timers = defaultdict(Timer)
+
+    ### Allowable configurations ###
+    allow_configs(args)
 
     ### Dataset ###
     timers['roidb'].tic()
