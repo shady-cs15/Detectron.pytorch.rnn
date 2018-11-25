@@ -41,6 +41,9 @@ __C.CASCADE.BATCH_SIZE = 16
 # ---------------------------------------------------------------------------- #
 __C.TRAIN = AttrDict()
 
+# Late filtering, should be on for cascade mode
+__C.TRAIN.LATE_FILTERING = True
+
 # Datasets to train on
 # Available dataset list: datasets.dataset_catalog.DATASETS.keys()
 # If multiple datasets are listed, the model is trained on their union
