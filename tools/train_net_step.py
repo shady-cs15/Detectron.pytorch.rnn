@@ -168,6 +168,9 @@ def main():
     elif args.dataset == "epic_small":
         cfg.TRAIN.DATASETS = ('epic_small_train',)
         cfg.MODEL.NUM_CLASSES = 352
+    elif args.dataset == "imnet_vid":
+        cfg.TRAIN.DATASETS = ('imnet_vid_train',)
+        cfg.MODEL.NUM_CLASSES = 31
     else:
         raise ValueError("Unexpected args.dataset: {}".format(args.dataset))
 
@@ -435,7 +438,6 @@ def main():
                 for key in input_data:
                     if key != 'roidb' and key!='im_name': # roidb is a list of ndarrays with inconsistent length
                         input_data[key] = list(map(Variable, input_data[key]))
-                import pdb; pdb.set_trace();
                 net_outputs = maskRCNN(**input_data)
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']

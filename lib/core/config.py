@@ -42,7 +42,7 @@ __C.CASCADE.BATCH_SIZE = 16
 __C.TRAIN = AttrDict()
 
 # Late filtering, should be on for cascade mode
-__C.TRAIN.LATE_FILTERING = True
+__C.TRAIN.LATE_FILTERING = False
 
 # Datasets to train on
 # Available dataset list: datasets.dataset_catalog.DATASETS.keys()
@@ -60,7 +60,7 @@ __C.TRAIN.MAX_SIZE = 1000
 
 # Images *per GPU* in the training minibatch
 # Total images per minibatch = TRAIN.IMS_PER_BATCH * NUM_GPUS
-__C.TRAIN.IMS_PER_BATCH = 2
+__C.TRAIN.IMS_PER_BATCH = 4
 
 # RoI minibatch size *per image* (number of regions of interest [ROIs])
 # Total number of RoIs per training minibatch =
@@ -112,7 +112,7 @@ __C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
 # tall and thin or both short and wide)
 # This feature is critical for saving memory (and makes training slightly
 # faster)
-__C.TRAIN.ASPECT_GROUPING = False
+__C.TRAIN.ASPECT_GROUPING = True
 
 # Crop images that have too small or too large aspect ratio
 __C.TRAIN.ASPECT_CROPPING = False

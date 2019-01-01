@@ -231,10 +231,11 @@ class JsonDataset(object):
             if 'ignore' in obj and obj['ignore'] == 1:
                 continue
             # Convert form (x1, y1, w, h) to (x1, y1, x2, y2)
-            x1, y1, x2, y2 = box_utils.xywh_to_xyxy(obj['bbox'])
-            x1, y1, x2, y2 = box_utils.clip_xyxy_to_image(
-                x1, y1, x2, y2, height, width
-            )
+            if obj['area'] > 0:
+                x1, y1, x2, y2 = box_utils.xywh_to_xyxy(obj['bbox'])
+                x1, y1, x2, y2 = box_utils.clip_xyxy_to_image(
+                    x1, y1, x2, y2, height, width
+                )
             # Require non-zero seg area and more than 1x1 box size
             if obj['area'] > 0 and x2 > x1 and y2 > y1:
                 obj['clean_bbox'] = [x1, y1, x2, y2]

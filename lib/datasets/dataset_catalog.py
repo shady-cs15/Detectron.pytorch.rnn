@@ -223,5 +223,13 @@ DATASETS = {
             _DATA_DIR + '/epic_small/images/train',
         ANN_FN:
             _DATA_DIR + '/epic_small/annotations/epic_small.json'
+    },
+
+    # image net vid
+    'imnet_vid_train': {
+        IM_DIR:
+            _DATA_DIR + '/imnet_vid/images/train',
+        ANN_FN:
+            _DATA_DIR + '/imnet_vid/annotations/train.json'
     }
 }

@@ -66,7 +66,8 @@ def combined_roidb_for_training(dataset_names, proposal_files):
     if cfg.TRAIN.LATE_FILTERING is False:
         roidb = filter_for_training(roidb)
     else:
-        logging.info('late filtering for roidbs enabled ...')
+        logging.info('late filtering for roidb enabled ...')
+        roidb = add_valid_key(roidb)
 
     if cfg.TRAIN.ASPECT_GROUPING or cfg.TRAIN.ASPECT_CROPPING:
         logger.info('Computing image aspect ratios and ordering the ratios...')
@@ -121,27 +122,32 @@ def extend_with_flipped_entries(roidb, dataset):
         flipped_roidb.append(flipped_entry)
     roidb.extend(flipped_roidb)
 
+def is_valid(entry):
+    # Valid images have:
+    #   (1) At least one foreground RoI OR
+    #   (2) At least one background RoI
+    overlaps = entry['max_overlaps']
+    # find boxes with sufficient overlap
+    fg_inds = np.where(overlaps >= cfg.TRAIN.FG_THRESH)[0]
+    # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
+    bg_inds = np.where((overlaps < cfg.TRAIN.BG_THRESH_HI) &
+                        (overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
+    # image is only valid if such boxes exist
+    valid = len(fg_inds) > 0 or len(bg_inds) > 0
+    if cfg.MODEL.KEYPOINTS_ON:
+        # If we're training for keypoints, exclude images with no keypoints
+        valid = valid and entry['has_visible_keypoints']
+    return valid
+
+def add_valid_key(roidb):
+    num = len(roidb)
+    for idx, entry in enumerate(roidb):
+        roidb[idx]['is_valid'] = is_valid(entry)
+    return roidb
 
 def filter_for_training(roidb):
     """Remove roidb entries that have no usable RoIs based on config settings.
     """
-    def is_valid(entry):
-        # Valid images have:
-        #   (1) At least one foreground RoI OR
-        #   (2) At least one background RoI
-        overlaps = entry['max_overlaps']
-        # find boxes with sufficient overlap
-        fg_inds = np.where(overlaps >= cfg.TRAIN.FG_THRESH)[0]
-        # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
-        bg_inds = np.where((overlaps < cfg.TRAIN.BG_THRESH_HI) &
-                           (overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
-        # image is only valid if such boxes exist
-        valid = len(fg_inds) > 0 or len(bg_inds) > 0
-        if cfg.MODEL.KEYPOINTS_ON:
-            # If we're training for keypoints, exclude images with no keypoints
-            valid = valid and entry['has_visible_keypoints']
-        return valid
-
     num = len(roidb)
     filtered_roidb = [entry for entry in roidb if is_valid(entry)]
     num_after = len(filtered_roidb)
