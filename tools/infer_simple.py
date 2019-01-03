@@ -98,6 +98,9 @@ def main():
     elif args.dataset.startswith("keypoints_coco"):
         dataset = datasets.get_coco_dataset()
         cfg.MODEL.NUM_CLASSES = 2
+    elif args.dataset == 'imnet_vid':
+        dataset = datasets.get_imnet_vid_dataset()
+        cfg.MODEL.NUM_CLASSES = len(dataset.classes)
     else:
         raise ValueError('Unexpected dataset name: {}'.format(args.dataset))
 

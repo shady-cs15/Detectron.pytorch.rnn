@@ -24,6 +24,21 @@ from __future__ import unicode_literals
 
 from utils.collections import AttrDict
 
+def get_imnet_vid_dataset():
+    """A dummy imnet vid dataset"""
+    ds = AttrDict()
+    classes = ['__background__',  # always index 0
+           'airplane', 'antelope', 'bear', 'bicycle',
+           'bird', 'bus', 'car', 'cattle',
+           'dog', 'domestic_cat', 'elephant', 'fox',
+           'giant_panda', 'hamster', 'horse', 'lion',
+           'lizard', 'monkey', 'motorcycle', 'rabbit',
+           'red_panda', 'sheep', 'snake', 'squirrel',
+           'tiger', 'train', 'turtle', 'watercraft',
+           'whale', 'zebra']
+    ds.classes = {i: name for i, name in enumerate(classes)}
+    return ds
+
 
 def get_coco_dataset():
     """A dummy COCO dataset that includes only the 'classes' field."""
