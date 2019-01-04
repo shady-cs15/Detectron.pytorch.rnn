@@ -231,5 +231,11 @@ DATASETS = {
             _DATA_DIR + '/imnet_vid/images/train',
         ANN_FN:
             _DATA_DIR + '/imnet_vid/annotations/train.json'
+    },
+    'imnet_vid_val': {
+        IM_DIR:
+            _DATA_DIR + '/imnet_vid/images/val',
+        ANN_FN:
+            _DATA_DIR + '/imnet_vid/annotations/val.json'
     }
 }
