@@ -81,16 +81,18 @@ def add_rpn_blobs(blobs, im_scales, roidb):
             rpn_blobs = _get_rpn_blobs(
                 im_height, im_width, foas, all_anchors, gt_rois
             )
-            for i, lvl in enumerate(range(k_min, k_max + 1)):
-                for k, v in rpn_blobs[i].items():
-                    blobs[k + '_fpn' + str(lvl)].append(v)
+            if rpn_blobs is not None:
+                for i, lvl in enumerate(range(k_min, k_max + 1)):
+                    for k, v in rpn_blobs[i].items():
+                        blobs[k + '_fpn' + str(lvl)].append(v)
         else:
             # Classical RPN, applied to a single feature level
             rpn_blobs = _get_rpn_blobs(
                 im_height, im_width, [foa], all_anchors, gt_rois
             )
-            for k, v in rpn_blobs.items():
-                blobs[k].append(v)
+            if rpn_blobs is not None:
+                for k, v in rpn_blobs.items():
+                    blobs[k].append(v)
 
     for k, v in blobs.items():
         if isinstance(v, list) and len(v) > 0:
@@ -108,9 +110,10 @@ def add_rpn_blobs(blobs, im_scales, roidb):
     # blobs['roidb'] = blob_utils.serialize(minimal_roidb)
     blobs['roidb'] = minimal_roidb
 
-    # Always return valid=True, since RPN minibatches are valid by design
+    # RPN blobs might not be valid if late filtering is used
+    if rpn_blobs is None:
+        return False
     return True
-
 
 def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
     total_anchors = all_anchors.shape[0]
@@ -168,6 +171,8 @@ def _get_rpn_blobs(im_height, im_width, foas, all_anchors, gt_boxes):
         labels[anchors_with_max_overlap] = 1
         # Fg label: above threshold IOU
         labels[anchor_to_gt_max >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
+    else:
+        return None
 
     # subsample positive labels if we have too many
     num_fg = int(cfg.TRAIN.RPN_FG_FRACTION * cfg.TRAIN.RPN_BATCH_SIZE_PER_IM)

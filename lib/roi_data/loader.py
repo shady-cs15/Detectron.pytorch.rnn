@@ -27,11 +27,14 @@ class RoiDataLoader(data.Dataset):
         blobs, valid = get_minibatch(single_db)
         #TODO: Check if minibatch is valid ? If not, abandon it.
         # Need to change _worker_loop in torch.utils.data.dataloader.py.
-    
+        #print(valid)
+
         # Squeeze batch dim
-        for key in blobs:
-            if key != 'roidb' and key !='im_name':
-                blobs[key] = blobs[key].squeeze(axis=0)
+        if valid:
+            for key in blobs:
+                if key != 'roidb' and key !='im_name':
+                    blobs[key] = blobs[key].squeeze(axis=0)
+                    #print(key, blobs[key].shape)
 
         if self._roidb[index]['need_crop']:
             self.crop_data(blobs, ratio)
@@ -157,22 +160,35 @@ class MinibatchSampler(torch_sampler.Sampler):
 
     def __iter__(self):
         if cfg.TRAIN.ASPECT_GROUPING:
-            # indices for aspect grouping awared permutation
-            n, rem = divmod(self.num_data, cfg.TRAIN.IMS_PER_BATCH)
-            round_num_data = n * cfg.TRAIN.IMS_PER_BATCH
-            indices = np.arange(round_num_data)
-            npr.shuffle(indices.reshape(-1, cfg.TRAIN.IMS_PER_BATCH))  # inplace shuffle
-            if rem != 0:
-                indices = np.append(indices, np.arange(round_num_data, round_num_data + rem))
-            ratio_index = self.ratio_index[indices]
-            ratio_list_minibatch = self.ratio_list_minibatch[indices]
+            if self.cascaded:
+                '''
+                print('testing phase')
+                n = self.num_data // (cfg.CASCADE.WIN_LEN * cfg.CASCADE.BATCH_SIZE)
+                indices = np.arange(n * cfg.CASCADE.WIN_LEN * cfg.CASCADE.BATCH_SIZE)
+                indices = indices.reshape(-1, cfg.CASCADE.WIN_LEN)
+                npr.shuffle(indices)
+                indices = indices.reshape(-1, cfg.CASCADE.BATCH_SIZE, cfg.CASCADE.WIN_LEN)
+                indices = indices.transpose(0, 2, 1).flatten()
+                ratio_index = self.ratio_index[indices]
+                ratio_list_minibatch = self.ratio_list_minibatch[indices]
+                '''
+                raise NotImplementedError
+            else:
+                # indices for aspect grouping awared permutation
+                n, rem = divmod(self.num_data, cfg.TRAIN.IMS_PER_BATCH)
+                round_num_data = n * cfg.TRAIN.IMS_PER_BATCH
+                indices = np.arange(round_num_data)
+                npr.shuffle(indices.reshape(-1, cfg.TRAIN.IMS_PER_BATCH))  # inplace shuffle
+                if rem != 0:
+                    indices = np.append(indices, np.arange(round_num_data, round_num_data + rem))
+                ratio_index = self.ratio_index[indices]
+                ratio_list_minibatch = self.ratio_list_minibatch[indices]
         else:
             if self.cascaded:
                 n = self.num_data // (cfg.CASCADE.WIN_LEN * cfg.CASCADE.BATCH_SIZE)
                 indices = np.arange(n * cfg.CASCADE.WIN_LEN * cfg.CASCADE.BATCH_SIZE)
                 indices = indices.reshape(-1, cfg.CASCADE.WIN_LEN)
                 npr.shuffle(indices)
-                import pdb; pdb.set_trace();
                 indices = indices.reshape(-1, cfg.CASCADE.BATCH_SIZE, cfg.CASCADE.WIN_LEN)
                 indices = indices.transpose(0, 2, 1)
                 rand_perm = indices.flatten()

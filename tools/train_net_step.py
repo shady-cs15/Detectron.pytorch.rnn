@@ -29,6 +29,7 @@ from utils.detectron_weight_helper import load_detectron_weight
 from utils.logging import setup_logging
 from utils.timer import Timer
 from utils.training_stats import TrainingStats
+from utils.cascade import check_sequence_break_onlist, lg_to_gl
 
 # Set up logging and load config options
 logger = setup_logging(__name__)
@@ -137,13 +138,15 @@ def save_ckpt(output_dir, args, step, train_size, model, optimizer):
 
 
 def allow_configs(args):
-    if args.cascaded is True and cfg.TRAIN.ASPECT_GROUPING is True:
-        raise Exception('aspect grouping not supported for cascade mode')
+    #if args.cascaded is True and cfg.TRAIN.ASPECT_GROUPING is True:
+    #    raise Exception('aspect grouping not supported for cascade mode')
     if args.cascaded is True and cfg.TRAIN.ASPECT_CROPPING is True:
         raise Exception('aspect cropping not supported for cascade mode')
     if args.batch_size * args.iter_size != cfg.CASCADE.BATCH_SIZE:
         raise Exception('effective batch size should be same as config.CASCADE.BATCH_SIZE')
-    print('configs are allowable..')
+    if args.cascaded != cfg.CASCADE.CASCADE_ON:
+        raise Exception('cascade option should be changed in cfg.CASCADE.CASCADE_ON')
+    print('configs are allowable...')
     
 def main():
     """Main function"""
@@ -276,6 +279,7 @@ def main():
     if cfg.CUDA:
         maskRCNN.cuda()
 
+
     ### Optimizer ###
     gn_param_nameset = set()
     for name, module in maskRCNN.named_modules():
@@ -356,6 +360,7 @@ def main():
     maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
                                  minibatch=True)
 
+
     ### Training Setups ###
     args.run_name = misc_utils.get_run_name() + '_step'
     output_dir = misc_utils.get_output_dir(args, args.run_name)
@@ -395,6 +400,7 @@ def main():
     try:
         logger.info('Training starts !')
         step = args.start_step
+        blob_conv_acc = None
         for step in range(args.start_step, cfg.SOLVER.MAX_ITER):
 
             # Warm up
@@ -436,17 +442,50 @@ def main():
                     input_data = next(dataiterator)
 
                 for key in input_data:
-                    if key != 'roidb' and key!='im_name': # roidb is a list of ndarrays with inconsistent length
+                    if key not in ['roidb', 'im_name']: # roidb is a list of ndarrays with inconsistent length
                         input_data[key] = list(map(Variable, input_data[key]))
+
+                if cfg.CASCADE.CASCADE_ON:
+                    cur_im_names = input_data['im_name']
+                    if step > 0:
+                        sequence_breaks = check_sequence_break_onlist(last_im_names, cur_im_names)
+                        reset = any(sequence_breaks)
+                        if reset:
+                            blob_conv_acc = None
+                    else:
+                        reset = True
+                        blob_conv_acc = None
+                    #import pdb; pdb.set_trace()
+                    last_im_names = cur_im_names
+
+                    input_data['reset'] = [reset]*cfg.NUM_GPUS
+                    if blob_conv_acc is None:
+                        blob_conv_acc = [blob_conv_acc]*cfg.NUM_GPUS
+                    else:
+                        blob_conv_acc = lg_to_gl(blob_conv_acc)
+                        for device_id in range(len(blob_conv_acc)):
+                            for level in range(len(blob_conv_acc[device_id])):
+                                blob_conv_acc[device_id][level] = Variable(torch.from_numpy(\
+                                                    blob_conv_acc[device_id][level])).cuda(device_id)
+                                                
+                    input_data['blob_conv_acc'] = blob_conv_acc
+                    
                 net_outputs = maskRCNN(**input_data)
+                
+                if cfg.CASCADE.CASCADE_ON:
+                    # TODO if needed .cpu().numpy()
+                    # blob_conv_acc is lg format level x gpu
+                    blob_conv_acc = [net_outputs['blob_conv'+str(i)] for i in range(5)]
+                    
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']
                 loss.backward()
+                    
             optimizer.step()
             training_stats.IterToc()
 
             training_stats.LogIterStats(step, lr)
-
+            
             if (step+1) % CHECKPOINT_PERIOD == 0:
                 save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
 

@@ -74,11 +74,8 @@ def combined_roidb_for_training(dataset_names, proposal_files):
         ratio_list, ratio_index = rank_for_training(roidb)
         logger.info('done')
     else:
-        # NOTE temporary fix
         ratio_list, ratio_index = rank_for_training(roidb)
-        assert (ratio_list-ratio_list[0]).sum()<1e-3
-        ratio_index = np.sort(ratio_index)
-
+        
     logger.info('Computing bounding-box regression targets...')
     add_bbox_regression_targets(roidb)
     logger.info('done')
@@ -195,7 +192,10 @@ def rank_for_training(roidb):
         logging.info('Number of entries that need to be cropped: %d. Ratio bound: [%.2f, %.2f]',
                      need_crop_cnt, RATIO_LO, RATIO_HI)
     ratio_list = np.array(ratio_list)
-    ratio_index = np.argsort(ratio_list)
+    if cfg.TRAIN.ASPECT_GROUPING:
+        ratio_index = np.argsort(ratio_list)
+    else:
+        ratio_index = np.arange(ratio_list.shape[0])
     return ratio_list[ratio_index], ratio_index
 
 def add_bbox_regression_targets(roidb):

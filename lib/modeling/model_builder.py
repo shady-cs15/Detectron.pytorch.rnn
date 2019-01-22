@@ -18,6 +18,7 @@ import modeling.keypoint_rcnn_heads as keypoint_rcnn_heads
 import utils.blob as blob_utils
 import utils.net as net_utils
 import utils.resnet_weights_helper as resnet_utils
+import utils.cascade as cascade_splits
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,11 @@ class Generalized_RCNN(nn.Module):
 
         self._init_modules()
 
+        # Cascade function
+        if cfg.CASCADE.CASCADE_ON:
+            self.cascade_fn = get_func(cfg.CASCADE.CASCADE_FN)()
+            
+
     def _init_modules(self):
         if cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS:
             resnet_utils.load_pretrained_imagenet_weights(self)
@@ -136,14 +142,14 @@ class Generalized_RCNN(nn.Module):
             for p in self.Conv_Body.parameters():
                 p.requires_grad = False
 
-    def forward(self, data, im_info, roidb=None, **rpn_kwargs):
+    def forward(self, data, im_info, roidb=None, reset=True, blob_conv_acc=None, **rpn_kwargs):
         if cfg.PYTORCH_VERSION_LESS_THAN_040:
-            return self._forward(data, im_info, roidb, **rpn_kwargs)
+            return self._forward(data, im_info, roidb, reset, blob_conv_acc, **rpn_kwargs)
         else:
             with torch.set_grad_enabled(self.training):
-                return self._forward(data, im_info, roidb, **rpn_kwargs)
+                return self._forward(data, im_info, roidb, reset, blob_conv_acc, **rpn_kwargs)
 
-    def _forward(self, data, im_info, roidb=None, **rpn_kwargs):
+    def _forward(self, data, im_info, roidb=None, reset=True, blob_conv_acc=None, **rpn_kwargs):
         im_data = data
         if self.training:
             roidb = list(map(lambda x: blob_utils.deserialize(x)[0], roidb))
@@ -153,9 +159,36 @@ class Generalized_RCNN(nn.Module):
         return_dict = {}  # A dict to collect return variables
 
         blob_conv = self.Conv_Body(im_data)
+       
+        # concatenate and accumulate features
+        if cfg.CASCADE.CASCADE_ON:
+            if cfg.FPN.FPN_ON:
+                # if blob_conv_acc is None then it is time to reset
+                # hence it is converted to a tensor of zeros
+                if blob_conv_acc is None:
+                    blob_conv_acc = []
+                    for l in range(5):
+                        blob_conv_acc.append(torch.tensor((), dtype=blob_conv[l].dtype))
+                        blob_conv_acc[l] = blob_conv_acc[l].new_zeros(blob_conv[l].shape,
+                                                                device=blob_conv[l].get_device())
+                # At this point blob_conv_acc always is valid, 
+                # hence always pass through cascade function
+                # store resulting features in blob_conv 
+                for l in range(5):
+                    blob_conv_concat = torch.cat((blob_conv_acc[l], blob_conv[l]), dim=1)
+                    blob_conv[l] = self.cascade_fn(blob_conv_concat)
 
+            # cascade fn only implemented for fpn backbones 
+            else:
+                raise NotImplementedError
+
+            # split resulting blob_conv and store in return dictionary
+            blob_conv_splits = cascade_splits.split_blob_conv(blob_conv)
+            for k, v in blob_conv_splits.items():
+                return_dict[k] = v.detach().cpu().numpy()
+        
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
-
+        
         # if self.training:
         #     # can be used to infer fg/bg ratio
         #     return_dict['rois_label'] = rpn_ret['labels_int32']
@@ -181,6 +214,7 @@ class Generalized_RCNN(nn.Module):
         if self.training:
             return_dict['losses'] = {}
             return_dict['metrics'] = {}
+
             # rpn loss
             rpn_kwargs.update(dict(
                 (k, rpn_ret[k]) for k in rpn_ret.keys()

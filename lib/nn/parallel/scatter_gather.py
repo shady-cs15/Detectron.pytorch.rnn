@@ -68,7 +68,13 @@ def gather(outputs, target_device, dim=0):
         if isinstance(out, collections.Sequence):
             return type(out)(map(gather_map, zip(*outputs)))
         elif isinstance(out, collections.Mapping):
-            return {key: gather_map([d[key] for d in outputs]) for key in out}
+            ret_dict = {}
+            for key in out:
+                if key.startswith('blob_conv'):
+                    ret_dict[key] = [d[key] for d in outputs]
+                else:    
+                    ret_dict[key] = gather_map([d[key] for d in outputs])
+            return ret_dict
         elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
                 and elem_type.__name__ != 'string_':
             elem = out

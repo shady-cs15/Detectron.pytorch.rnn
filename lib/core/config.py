@@ -33,8 +33,11 @@ cfg = __C
 # ---------------------------------------------------------------------------- #
 __C.CASCADE = AttrDict()
 
+__C.CASCADE.CASCADE_ON = True
 __C.CASCADE.WIN_LEN = 10
-__C.CASCADE.BATCH_SIZE = 16
+__C.CASCADE.BATCH_SIZE = 8
+__C.CASCADE.CASCADE_FN = 'Cascade.fpn_conv4'
+__C.CASCADE.ALLOWED_GAP = 5
 
 # ---------------------------------------------------------------------------- #
 # Training options
@@ -112,7 +115,7 @@ __C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
 # tall and thin or both short and wide)
 # This feature is critical for saving memory (and makes training slightly
 # faster)
-__C.TRAIN.ASPECT_GROUPING = True
+__C.TRAIN.ASPECT_GROUPING = False
 
 # Crop images that have too small or too large aspect ratio
 __C.TRAIN.ASPECT_CROPPING = False
