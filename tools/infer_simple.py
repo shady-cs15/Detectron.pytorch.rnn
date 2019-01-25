@@ -117,6 +117,8 @@ def main():
 
     maskRCNN = Generalized_RCNN()
 
+    import pdb; pdb.set_trace();
+
     if args.cuda:
         maskRCNN.cuda()
 

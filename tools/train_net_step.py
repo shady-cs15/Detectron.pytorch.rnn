@@ -401,6 +401,7 @@ def main():
         logger.info('Training starts !')
         step = args.start_step
         blob_conv_acc = None
+        last_im_names = None
         for step in range(args.start_step, cfg.SOLVER.MAX_ITER):
 
             # Warm up
@@ -447,7 +448,7 @@ def main():
 
                 if cfg.CASCADE.CASCADE_ON:
                     cur_im_names = input_data['im_name']
-                    if step > 0:
+                    if step > 0 and last_im_names is not None:
                         sequence_breaks = check_sequence_break_onlist(last_im_names, cur_im_names)
                         reset = any(sequence_breaks)
                         if reset:
@@ -462,11 +463,9 @@ def main():
                     if blob_conv_acc is None:
                         blob_conv_acc = [blob_conv_acc]*cfg.NUM_GPUS
                     else:
-                        blob_conv_acc = lg_to_gl(blob_conv_acc)
                         for device_id in range(len(blob_conv_acc)):
                             for level in range(len(blob_conv_acc[device_id])):
-                                blob_conv_acc[device_id][level] = Variable(torch.from_numpy(\
-                                                    blob_conv_acc[device_id][level])).cuda(device_id)
+                                blob_conv_acc[device_id][level] = blob_conv_acc[device_id][level].detach()
                                                 
                     input_data['blob_conv_acc'] = blob_conv_acc
                     
@@ -476,6 +475,7 @@ def main():
                     # TODO if needed .cpu().numpy()
                     # blob_conv_acc is lg format level x gpu
                     blob_conv_acc = [net_outputs['blob_conv'+str(i)] for i in range(5)]
+                    blob_conv_acc = lg_to_gl(blob_conv_acc)
                     
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']

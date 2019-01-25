@@ -181,11 +181,9 @@ class Generalized_RCNN(nn.Module):
             # cascade fn only implemented for fpn backbones 
             else:
                 raise NotImplementedError
-
-            # split resulting blob_conv and store in return dictionary
-            blob_conv_splits = cascade_splits.split_blob_conv(blob_conv)
-            for k, v in blob_conv_splits.items():
-                return_dict[k] = v.detach().cpu().numpy()
+        
+        # split resulting blob_conv and store in return dictionary
+        blob_conv_splits = cascade_splits.split_blob_conv(blob_conv)
         
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
         
@@ -280,6 +278,10 @@ class Generalized_RCNN(nn.Module):
             return_dict['rois'] = rpn_ret['rois']
             return_dict['cls_score'] = cls_score
             return_dict['bbox_pred'] = bbox_pred
+
+        for k, v in blob_conv_splits.items():
+            #return_dict[k] = v.detach().cpu().numpy()
+            return_dict[k] = v
 
         return return_dict
 
@@ -387,12 +389,13 @@ class Generalized_RCNN(nn.Module):
             d_wmap = {}  # detectron_weight_mapping
             d_orphan = []  # detectron orphan weight list
             for name, m_child in self.named_children():
-                if list(m_child.parameters()):  # if module has any parameter
-                    child_map, child_orphan = m_child.detectron_weight_mapping()
-                    d_orphan.extend(child_orphan)
-                    for key, value in child_map.items():
-                        new_key = name + '.' + key
-                        d_wmap[new_key] = value
+                if name != 'cascade_fn':
+                    if list(m_child.parameters()):  # if module has any parameter
+                        child_map, child_orphan = m_child.detectron_weight_mapping()
+                        d_orphan.extend(child_orphan)
+                        for key, value in child_map.items():
+                            new_key = name + '.' + key
+                            d_wmap[new_key] = value
             self.mapping_to_detectron = d_wmap
             self.orphans_in_detectron = d_orphan
 
