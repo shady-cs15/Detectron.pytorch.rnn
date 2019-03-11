@@ -80,6 +80,8 @@ def update_learning_rate(optimizer, cur_lr, new_lr):
             param_keys += param_group['params']
         if cfg.SOLVER.TYPE in ['SGD'] and cfg.SOLVER.SCALE_MOMENTUM and cur_lr > 1e-7 and \
                 ratio > cfg.SOLVER.SCALE_MOMENTUM_THRESHOLD:
+            for k in param_keys:
+                print(optimizer.state[k].keys())
             _CorrectMomentum(optimizer, param_keys, new_lr / cur_lr)
 
 

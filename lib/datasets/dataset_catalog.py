@@ -230,12 +230,31 @@ DATASETS = {
         IM_DIR:
             _DATA_DIR + '/imnet_vid/images/train',
         ANN_FN:
-            _DATA_DIR + '/imnet_vid/annotations/train.json'
+            _DATA_DIR + '/imnet_vid/annotations/train.json',
+        DEVKIT_DIR:
+            _DATA_DIR + '/imnet_vid/VOCdevkit'
     },
     'imnet_vid_val': {
         IM_DIR:
             _DATA_DIR + '/imnet_vid/images/val',
         ANN_FN:
-            _DATA_DIR + '/imnet_vid/annotations/val.json'
-    }
+            _DATA_DIR + '/imnet_vid/annotations/val.json',
+        DEVKIT_DIR:
+            _DATA_DIR + '/imnet_vid/VOCdevkit'
+    },
+
+
+    #adl 
+    'adl_train': {
+        IM_DIR:
+            _DATA_DIR + '/adl/images/train', 
+        ANN_FN:
+            _DATA_DIR + '/adl/annotations/train.json'
+    },
+    'adl_val': {
+        IM_DIR:
+            _DATA_DIR + '/adl/images/val',
+        ANN_FN:
+            _DATA_DIR + '/adl/annotations/val.json'
+    },
 }

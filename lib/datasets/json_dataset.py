@@ -217,8 +217,12 @@ class JsonDataset(object):
         # Sanitize bboxes -- some are invalid
         valid_objs = []
         valid_segms = []
-        width = entry['width']
-        height = entry['height']
+        try:
+            width = entry['width']
+            height = entry['height']
+        except Exception:
+            return
+            #import pdb; pdb.set_trace();
         for obj in objs:
             # crowd regions are RLE encoded and stored as dicts
             if isinstance(obj['segmentation'], list):

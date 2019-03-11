@@ -124,14 +124,14 @@ def _do_python_eval(json_dataset, salt, output_dir='output'):
             filename, anno_path, image_set_path, cls, cachedir, ovthresh=0.5,
             use_07_metric=use_07_metric)
         aps += [ap]
-        logger.info('AP for {} = {:.4f}'.format(cls, ap))
+        #logger.info('AP for {} = {:.4f}'.format(cls, ap))
         res_file = os.path.join(output_dir, cls + '_pr.pkl')
         save_object({'rec': rec, 'prec': prec, 'ap': ap}, res_file)
     logger.info('Mean AP = {:.4f}'.format(np.mean(aps)))
     logger.info('~~~~~~~~')
     logger.info('Results:')
-    for ap in aps:
-        logger.info('{:.3f}'.format(ap))
+    for i, ap in enumerate(aps):
+        logger.info(json_dataset.classes[i+1]+': {:.3f}'.format(ap))
     logger.info('{:.3f}'.format(np.mean(aps)))
     logger.info('~~~~~~~~')
     logger.info('')
@@ -163,6 +163,8 @@ def _do_matlab_eval(json_dataset, salt, output_dir='output'):
 
 def voc_info(json_dataset):
     year = json_dataset.name[4:8]
+    if not year.isnumeric():
+        year = '2012'
     image_set = json_dataset.name[9:]
     devkit_path = DATASETS[json_dataset.name][DEVKIT_DIR]
     assert os.path.exists(devkit_path), \

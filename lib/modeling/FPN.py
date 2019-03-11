@@ -419,7 +419,7 @@ class fpn_rpn_outputs(nn.Module):
         return return_dict
 
 
-def fpn_rpn_losses(**kwargs):
+def fpn_rpn_losses(**kwargs): 
     """Add RPN on FPN specific losses."""
     losses_cls = []
     losses_bbox = []

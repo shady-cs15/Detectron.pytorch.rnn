@@ -215,8 +215,9 @@ def _compute_targets(entry):
     targets = np.zeros((rois.shape[0], 5), dtype=np.float32)
     if len(gt_inds) == 0:
         # Bail if the image has no ground-truth ROIs
+        assert not entry['is_valid']
         return targets
-
+    
     # Indices of examples for which we try to make predictions
     ex_inds = np.where(overlaps >= cfg.TRAIN.BBOX_THRESH)[0]
 

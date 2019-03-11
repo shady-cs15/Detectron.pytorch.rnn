@@ -33,9 +33,9 @@ cfg = __C
 # ---------------------------------------------------------------------------- #
 __C.CASCADE = AttrDict()
 
-__C.CASCADE.CASCADE_ON = True
+__C.CASCADE.CASCADE_ON = False
 __C.CASCADE.WIN_LEN = 10
-__C.CASCADE.BATCH_SIZE = 8
+__C.CASCADE.BATCH_SIZE = 16
 __C.CASCADE.CASCADE_FN = 'Cascade.fpn_conv4'
 __C.CASCADE.ALLOWED_GAP = 5
 
@@ -248,7 +248,9 @@ __C.TEST.COMPETITION_MODE = True
 # Evaluate detections with the COCO json dataset eval code even if it's not the
 # evaluation code for the dataset (e.g. evaluate PASCAL VOC results using the
 # COCO API to get COCO style AP on PASCAL VOC)
-__C.TEST.FORCE_JSON_DATASET_EVAL = True
+__C.TEST.FORCE_JSON_DATASET_EVAL = False
+
+__C.TEST.FORCE_VOC_STYLE_EVAL = True
 
 # [Inferred value; do not set directly in a config]
 # Indicates if precomputed proposals are used at test time

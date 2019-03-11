@@ -30,6 +30,25 @@ import xml.etree.ElementTree as ET
 
 logger = logging.getLogger(__name__)
 
+def map_imnet_name(name):
+    classes = [ 'airplane', 'antelope', 'bear', 'bicycle',
+                'bird', 'bus', 'car', 'cattle',
+                'dog', 'domestic_cat', 'elephant', 'fox',
+                'giant_panda', 'hamster', 'horse', 'lion',
+                'lizard', 'monkey', 'motorcycle', 'rabbit',
+                'red_panda', 'sheep', 'snake', 'squirrel',
+                'tiger', 'train', 'turtle', 'watercraft',
+                'whale', 'zebra']
+    names = [  'n02691156', 'n02419796', 'n02131653', 'n02834778',
+               'n01503061', 'n02924116', 'n02958343', 'n02402425',
+               'n02084071', 'n02121808', 'n02503517', 'n02118333',
+               'n02510455', 'n02342885', 'n02374451', 'n02129165',
+               'n01674464', 'n02484322', 'n03790512', 'n02324045',
+               'n02509815', 'n02411705', 'n01726692', 'n02355227',
+               'n02129604', 'n04468005', 'n01662784', 'n04530566',
+               'n02062744', 'n02391049']
+    name_map = {n:c for c, n in zip(classes, names)}
+    return name_map[name]
 
 def parse_rec(filename):
     """Parse a PASCAL VOC xml file."""
@@ -37,10 +56,10 @@ def parse_rec(filename):
     objects = []
     for obj in tree.findall('object'):
         obj_struct = {}
-        obj_struct['name'] = obj.find('name').text
-        obj_struct['pose'] = obj.find('pose').text
-        obj_struct['truncated'] = int(obj.find('truncated').text)
-        obj_struct['difficult'] = int(obj.find('difficult').text)
+        obj_struct['name'] = map_imnet_name(obj.find('name').text)
+        #obj_struct['pose'] = obj.find('pose').text
+        #obj_struct['truncated'] = int(obj.find('truncated').text)
+        obj_struct['difficult'] = 0 if obj.find('difficult') is None else int(obj.find('difficult').text)
         bbox = obj.find('bndbox')
         obj_struct['bbox'] = [int(bbox.find('xmin').text),
                               int(bbox.find('ymin').text),
@@ -125,23 +144,23 @@ def voc_eval(detpath,
         lines = f.readlines()
     imagenames = [x.strip() for x in lines]
 
-    if not os.path.isfile(cachefile):
-        # load annots
-        recs = {}
-        for i, imagename in enumerate(imagenames):
-            recs[imagename] = parse_rec(annopath.format(imagename))
-            if i % 100 == 0:
-                logger.info(
-                    'Reading annotation for {:d}/{:d}'.format(
-                        i + 1, len(imagenames)))
-        # save
-        logger.info('Saving cached annotations to {:s}'.format(cachefile))
-        with open(cachefile, 'w') as f:
-            cPickle.dump(recs, f)
-    else:
-        # load
-        with open(cachefile, 'r') as f:
-            recs = cPickle.load(f)
+    #if not os.path.isfile(cachefile):
+    # load annots
+    recs = {}
+    for i, imagename in enumerate(imagenames):
+        recs[imagename] = parse_rec(annopath.format(imagename))
+        #if i % 100 == 0:
+        #    logger.info(
+        #        'Reading annotation for {:d}/{:d}'.format(
+        #            i + 1, len(imagenames)))
+    # save
+    #logger.info('Saving cached annotations to {:s}'.format(cachefile))
+    with open(cachefile, 'wb') as f:
+        cPickle.dump(recs, f)
+    #else:
+    #    # load
+    #    with open(cachefile, 'rb') as f:
+    #        recs = cPickle.load(f)
 
     # extract gt objects for this class
     class_recs = {}
@@ -168,8 +187,9 @@ def voc_eval(detpath,
 
     # sort by confidence
     sorted_ind = np.argsort(-confidence)
-    BB = BB[sorted_ind, :]
-    image_ids = [image_ids[x] for x in sorted_ind]
+    if sorted_ind.size > 0:
+        BB = BB[sorted_ind, :]
+        image_ids = [image_ids[x] for x in sorted_ind]
 
     # go down dets and mark TPs and FPs
     nd = len(image_ids)

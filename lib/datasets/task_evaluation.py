@@ -74,6 +74,7 @@ def evaluate_boxes(dataset, all_boxes, output_dir, use_matlab=False):
     """Evaluate bounding box detection."""
     logger.info('Evaluating detections')
     not_comp = not cfg.TEST.COMPETITION_MODE
+    assert cfg.TEST.FORCE_JSON_DATASET_EVAL ^ cfg.TEST.FORCE_VOC_STYLE_EVAL
     if _use_json_dataset_evaluator(dataset):
         coco_eval = json_dataset_evaluator.evaluate_boxes(
             dataset, all_boxes, output_dir, use_salt=not_comp, cleanup=not_comp
@@ -254,7 +255,7 @@ def _use_cityscapes_evaluator(dataset):
 
 def _use_voc_evaluator(dataset):
     """Check if the dataset uses the PASCAL VOC dataset evaluator."""
-    return dataset.name[:4] == 'voc_'
+    return dataset.name[:4] == 'voc_' or cfg.TEST.FORCE_VOC_STYLE_EVAL
 
 
 # Indices in the stats array for COCO boxes and masks

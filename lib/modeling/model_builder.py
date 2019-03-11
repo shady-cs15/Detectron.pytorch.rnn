@@ -171,6 +171,7 @@ class Generalized_RCNN(nn.Module):
                         blob_conv_acc.append(torch.tensor((), dtype=blob_conv[l].dtype))
                         blob_conv_acc[l] = blob_conv_acc[l].new_zeros(blob_conv[l].shape,
                                                                 device=blob_conv[l].get_device())
+
                 # At this point blob_conv_acc always is valid, 
                 # hence always pass through cascade function
                 # store resulting features in blob_conv 
@@ -280,7 +281,6 @@ class Generalized_RCNN(nn.Module):
             return_dict['bbox_pred'] = bbox_pred
 
         for k, v in blob_conv_splits.items():
-            #return_dict[k] = v.detach().cpu().numpy()
             return_dict[k] = v
 
         return return_dict

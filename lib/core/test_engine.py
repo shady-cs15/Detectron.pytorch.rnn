@@ -45,6 +45,7 @@ import utils.subprocess as subprocess_utils
 import utils.vis as vis_utils
 from utils.io import save_object
 from utils.timer import Timer
+from utils.cascade import check_sequence_break, lg_to_gl
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,7 @@ def test_net_on_dataset(
         output_dir,
         multi_gpu=False,
         gpu_id=0):
-    """Run inference on a dataset."""
+    """Run inference on a."""
     dataset = JsonDataset(dataset_name)
     test_timer = Timer()
     test_timer.tic()
@@ -234,6 +235,10 @@ def test_net(
     num_classes = cfg.MODEL.NUM_CLASSES
     all_boxes, all_segms, all_keyps = empty_results(num_classes, num_images)
     timers = defaultdict(Timer)
+
+    last_im_name = None
+    blob_conv_acc = None
+
     for i, entry in enumerate(roidb):
         if cfg.TEST.PRECOMPUTED_PROPOSALS:
             # The roidb may contain ground-truth rois (for example, if the roidb
@@ -249,8 +254,20 @@ def test_net(
             # in-network RPN; 1-stage models don't require proposals.
             box_proposals = None
 
+        cur_im_name = entry['image']
         im = cv2.imread(entry['image'])
-        cls_boxes_i, cls_segms_i, cls_keyps_i = im_detect_all(model, im, box_proposals, timers)
+        if last_im_name:
+            if check_sequence_break(last_im_name, cur_im_name):
+                blob_conv_acc = None
+        last_im_name = cur_im_name
+        
+        if blob_conv_acc:
+            blob_conv_acc = lg_to_gl(blob_conv_acc)
+        
+        if cfg.CASCADE.CASCADE_ON:
+            cls_boxes_i, cls_segms_i, cls_keyps_i, blob_conv_acc = im_detect_all(model, im, box_proposals, timers, blob_conv_acc)
+        else:    
+            cls_boxes_i, cls_segms_i, cls_keyps_i = im_detect_all(model, im, box_proposals, timers)
 
         extend_results(i, all_boxes, cls_boxes_i)
         if cls_segms_i is not None:

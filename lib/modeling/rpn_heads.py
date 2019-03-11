@@ -31,6 +31,8 @@ def generic_rpn_losses(*inputs, **kwargs):
     if cfg.FPN.FPN_ON:
         return FPN.fpn_rpn_losses(*inputs, **kwargs)
     else:
+        if 'im_name' in kwargs:
+            kwargs.pop('im_name')
         return single_scale_rpn_losses(*inputs, **kwargs)
 
 

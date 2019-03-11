@@ -174,6 +174,9 @@ def main():
     elif args.dataset == "imnet_vid":
         cfg.TRAIN.DATASETS = ('imnet_vid_train',)
         cfg.MODEL.NUM_CLASSES = 31
+    elif args.dataset == "adl":
+        cfg.TRAIN.DATASETS = ('adl_train',)
+        cfg.MODEL.NUM_CLASSES = 44
     else:
         raise ValueError("Unexpected args.dataset: {}".format(args.dataset))
 
@@ -311,18 +314,19 @@ def main():
     # Learning rate of 0 is a dummy value to be set properly at the start of training
     params = [
         {'params': nonbias_params,
-         'lr': 0,
+         'lr': 0.000,
          'weight_decay': cfg.SOLVER.WEIGHT_DECAY},
         {'params': bias_params,
-         'lr': 0 * (cfg.SOLVER.BIAS_DOUBLE_LR + 1),
+         'lr': 0.000 * (cfg.SOLVER.BIAS_DOUBLE_LR + 1),
          'weight_decay': cfg.SOLVER.WEIGHT_DECAY if cfg.SOLVER.BIAS_WEIGHT_DECAY else 0},
         {'params': gn_params,
-         'lr': 0,
+         'lr': 0.000,
          'weight_decay': cfg.SOLVER.WEIGHT_DECAY_GN}
     ]
     # names of paramerters for each paramter
     param_names = [nonbias_param_names, bias_param_names, gn_param_names]
 
+    
     if cfg.SOLVER.TYPE == "SGD":
         optimizer = torch.optim.SGD(params, momentum=cfg.SOLVER.MOMENTUM)
     elif cfg.SOLVER.TYPE == "Adam":
@@ -468,7 +472,7 @@ def main():
                                 blob_conv_acc[device_id][level] = blob_conv_acc[device_id][level].detach()
                                                 
                     input_data['blob_conv_acc'] = blob_conv_acc
-                    
+
                 net_outputs = maskRCNN(**input_data)
                 
                 if cfg.CASCADE.CASCADE_ON:
@@ -480,6 +484,7 @@ def main():
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']
                 loss.backward()
+                
                     
             optimizer.step()
             training_stats.IterToc()
