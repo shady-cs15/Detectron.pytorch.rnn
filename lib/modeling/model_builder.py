@@ -181,10 +181,18 @@ class Generalized_RCNN(nn.Module):
 
             # cascade fn only implemented for fpn backbones 
             else:
-                raise NotImplementedError
+                # same logic for when blob_conv_acc is None
+                if blob_conv_acc is None:
+                    blob_conv_acc = torch.tensor((), dtype=blob_conv.dtype)
+                    blob_conv_acc = blob_conv_acc.new_zeros(blob_conv.shape, 
+                                                    device=blob_conv.get_device())
+                
+                blob_conv_concat = torch.cat((blob_conv_acc, blob_conv), dim=1)
+                blob_conv = self.cascade_fn(blob_conv_concat)
         
-        # split resulting blob_conv and store in return dictionary
-        blob_conv_splits = cascade_splits.split_blob_conv(blob_conv)
+        if cfg.FPN.FPN_ON:
+            # split resulting blob_conv and store in return dictionary
+            blob_conv_splits = cascade_splits.split_blob_conv(blob_conv)
         
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
         
@@ -280,8 +288,11 @@ class Generalized_RCNN(nn.Module):
             return_dict['cls_score'] = cls_score
             return_dict['bbox_pred'] = bbox_pred
 
-        for k, v in blob_conv_splits.items():
-            return_dict[k] = v
+        if cfg.FPN.FPN_ON:
+            for k, v in blob_conv_splits.items():
+                return_dict[k] = v
+        else:
+            return_dict['blob_conv'] = blob_conv
 
         return return_dict
 

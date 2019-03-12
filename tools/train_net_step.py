@@ -468,18 +468,23 @@ def main():
                         blob_conv_acc = [blob_conv_acc]*cfg.NUM_GPUS
                     else:
                         for device_id in range(len(blob_conv_acc)):
-                            for level in range(len(blob_conv_acc[device_id])):
-                                blob_conv_acc[device_id][level] = blob_conv_acc[device_id][level].detach()
-                                                
+                            if cfg.FPN.FPN_ON:
+                                for level in range(len(blob_conv_acc[device_id])):
+                                    blob_conv_acc[device_id][level] = blob_conv_acc[device_id][level].detach()
+                            else:
+                                blob_conv_acc[device_id] = blob_conv_acc[device_id].detach()                                        
                     input_data['blob_conv_acc'] = blob_conv_acc
 
                 net_outputs = maskRCNN(**input_data)
                 
                 if cfg.CASCADE.CASCADE_ON:
-                    # TODO if needed .cpu().numpy()
-                    # blob_conv_acc is lg format level x gpu
-                    blob_conv_acc = [net_outputs['blob_conv'+str(i)] for i in range(5)]
-                    blob_conv_acc = lg_to_gl(blob_conv_acc)
+                    if cfg.FPN.FPN_ON:
+                        # TODO if needed .cpu().numpy()
+                        # blob_conv_acc is lg format level x gpu
+                        blob_conv_acc = [net_outputs['blob_conv'+str(i)] for i in range(5)]
+                        blob_conv_acc = lg_to_gl(blob_conv_acc)
+                    else:
+                        blob_conv_acc = net_outputs['blob_conv']
                     
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']
