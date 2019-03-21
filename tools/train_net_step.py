@@ -24,7 +24,7 @@ import utils.misc as misc_utils
 from core.config import cfg, cfg_from_file, cfg_from_list, assert_and_infer_cfg
 from datasets.roidb import combined_roidb_for_training
 from roi_data.loader import RoiDataLoader, MinibatchSampler, BatchSampler, collate_minibatch
-from modeling.model_builder import Generalized_RCNN
+from modeling.model_builder import Generalized_RCNN, Generalized_RCNN_with_CFA
 from utils.detectron_weight_helper import load_detectron_weight
 from utils.logging import setup_logging
 from utils.timer import Timer
@@ -277,7 +277,7 @@ def main():
     dataiterator = iter(dataloader)
 
     ### Model ###
-    maskRCNN = Generalized_RCNN()
+    maskRCNN = Generalized_RCNN_with_CFA()
 
     if cfg.CUDA:
         maskRCNN.cuda()
@@ -451,6 +451,25 @@ def main():
                         input_data[key] = list(map(Variable, input_data[key]))
 
                 if cfg.CASCADE.CASCADE_ON:
+                    context_data = {}
+                    for k, v in input_data.items():
+                        if k == 'data':
+                            context_data[k] = [v]
+
+                    for i in range(9):
+                        input_data = next(dataiterator)
+                        for key in input_data:
+                            if key not in ['roidb', 'im_name']: # roidb is a list of ndarrays with inconsistent length
+                                input_data[key] = list(map(Variable, input_data[key]))
+                        for k, v in input_data.items():
+                            if k == 'data':
+                                context_data[k].append(v)
+                            else:
+                                context_data[k] = v
+
+                    input_data = context_data
+
+                    '''
                     cur_im_names = input_data['im_name']
                     if step > 0 and last_im_names is not None:
                         sequence_breaks = check_sequence_break_onlist(last_im_names, cur_im_names)
@@ -474,9 +493,11 @@ def main():
                             else:
                                 blob_conv_acc[device_id] = blob_conv_acc[device_id].detach()                                        
                     input_data['blob_conv_acc'] = blob_conv_acc
+                    '''
 
                 net_outputs = maskRCNN(**input_data)
                 
+                '''
                 if cfg.CASCADE.CASCADE_ON:
                     if cfg.FPN.FPN_ON:
                         # TODO if needed .cpu().numpy()
@@ -485,7 +506,7 @@ def main():
                         blob_conv_acc = lg_to_gl(blob_conv_acc)
                     else:
                         blob_conv_acc = net_outputs['blob_conv']
-                    
+                ''' 
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']
                 loss.backward()

@@ -34,9 +34,9 @@ cfg = __C
 __C.CASCADE = AttrDict()
 
 __C.CASCADE.CASCADE_ON = True
-__C.CASCADE.WIN_LEN = 10
+__C.CASCADE.WIN_LEN = 2
 __C.CASCADE.BATCH_SIZE = 8
-__C.CASCADE.CASCADE_FN = 'Cascade.resnet_conv5'
+__C.CASCADE.CASCADE_FN = 'Cascade.fpn_convX'
 __C.CASCADE.ALLOWED_GAP = 5
 
 # ---------------------------------------------------------------------------- #
