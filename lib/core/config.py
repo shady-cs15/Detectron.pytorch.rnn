@@ -34,8 +34,8 @@ cfg = __C
 __C.CASCADE = AttrDict()
 
 __C.CASCADE.CASCADE_ON = True
-__C.CASCADE.WIN_LEN = 2
-__C.CASCADE.BATCH_SIZE = 8
+__C.CASCADE.WIN_LEN = 5
+__C.CASCADE.BATCH_SIZE = 2
 __C.CASCADE.CASCADE_FN = 'Cascade.fpn_convX'
 __C.CASCADE.ALLOWED_GAP = 5
 
@@ -63,7 +63,7 @@ __C.TRAIN.MAX_SIZE = 1000
 
 # Images *per GPU* in the training minibatch
 # Total images per minibatch = TRAIN.IMS_PER_BATCH * NUM_GPUS
-__C.TRAIN.IMS_PER_BATCH = 4
+__C.TRAIN.IMS_PER_BATCH = 1
 
 # RoI minibatch size *per image* (number of regions of interest [ROIs])
 # Total number of RoIs per training minibatch =
@@ -937,7 +937,7 @@ __C.GROUP_NORM.EPSILON = 1e-5
 # ---------------------------------------------------------------------------- #
 
 # Number of GPUs to use (applies to both training and testing)
-__C.NUM_GPUS = 1
+__C.NUM_GPUS = 2
 
 # The mapping from image coordinates to feature map coordinates might cause
 # some boxes that are distinct in image space to become identical in feature

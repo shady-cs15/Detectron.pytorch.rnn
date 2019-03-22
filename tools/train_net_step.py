@@ -7,6 +7,7 @@ import pickle
 import resource
 import traceback
 import logging
+import warnings
 from collections import defaultdict
 
 import numpy as np
@@ -148,6 +149,55 @@ def allow_configs(args):
         raise Exception('cascade option should be changed in cfg.CASCADE.CASCADE_ON')
     print('configs are allowable...')
     
+def get_input_data(dataiterator, dataloader, with_cfa=False, tsteps=3):
+    def get_next(dataiterator, dataloader):
+        try:
+            input_data = next(dataiterator)
+        except StopIteration:
+            dataiterator = iter(dataloader)
+            input_data = next(dataiterator)
+        return input_data
+
+    def add_to_dict(dict, key, value):
+        if key in dict:
+            dict[key].append(value)
+        else:
+            dict[key] = [value]
+
+    if not with_cfa:
+        return get_next(dataiterator, dataloader)
+    else:
+        temp_data = {}
+        last_im_names = None
+        for t in range(tsteps):
+            input_data = get_next(dataiterator, dataloader)
+            cur_im_names = input_data['im_name']
+            if t > 0 and last_im_names is not None:
+                sequence_breaks = check_sequence_break_onlist(last_im_names, cur_im_names)
+                reset = any(sequence_breaks)
+                if reset:
+                    break
+                else:
+                    for k, v in input_data.items():
+                        add_to_dict(temp_data, k, v)
+
+            else:
+                for k, v in input_data.items():
+                    add_to_dict(temp_data, k, v)
+            last_im_names = cur_im_names
+            
+        #del input_data
+        input_data = {}
+        for g in range(cfg.NUM_GPUS):
+            for k in temp_data:
+                gpu_batch = []
+                for t in range(len(temp_data[k])):
+                    gpu_batch.append(temp_data[k][t][g])
+                add_to_dict(input_data, k, gpu_batch)
+        del temp_data
+        #import pdb; pdb.set_trace();
+        return input_data
+
 def main():
     """Main function"""
 
@@ -440,6 +490,13 @@ def main():
             training_stats.IterTic()
             optimizer.zero_grad()
             for inner_iter in range(args.iter_size):
+                if cfg.CASCADE.CASCADE_ON:
+                    input_data = get_input_data(dataiterator, dataloader, True, cfg.CASCADE.WIN_LEN)
+                else:
+                    raise NotImplementedError
+                #import pdb; pdb.set_trace();
+
+                '''
                 try:
                     input_data = next(dataiterator)
                 except StopIteration:
@@ -454,22 +511,24 @@ def main():
                     context_data = {}
                     for k, v in input_data.items():
                         if k == 'data':
-                            context_data[k] = [v]
+                            context_data[k] = v
+                            for g in range(cfg.NUM_GPUS):
+                                context_data[k][g] = [context_data[k][g]]
 
-                    for i in range(9):
+                    for i in range(2):
                         input_data = next(dataiterator)
                         for key in input_data:
                             if key not in ['roidb', 'im_name']: # roidb is a list of ndarrays with inconsistent length
                                 input_data[key] = list(map(Variable, input_data[key]))
                         for k, v in input_data.items():
                             if k == 'data':
-                                context_data[k].append(v)
+                                for g in range(cfg.NUM_GPUS):
+                                    context_data[k][g].append(v[g])
                             else:
                                 context_data[k] = v
 
                     input_data = context_data
 
-                    '''
                     cur_im_names = input_data['im_name']
                     if step > 0 and last_im_names is not None:
                         sequence_breaks = check_sequence_break_onlist(last_im_names, cur_im_names)
@@ -493,24 +552,22 @@ def main():
                             else:
                                 blob_conv_acc[device_id] = blob_conv_acc[device_id].detach()                                        
                     input_data['blob_conv_acc'] = blob_conv_acc
-                    '''
-
-                net_outputs = maskRCNN(**input_data)
-                
                 '''
-                if cfg.CASCADE.CASCADE_ON:
-                    if cfg.FPN.FPN_ON:
-                        # TODO if needed .cpu().numpy()
-                        # blob_conv_acc is lg format level x gpu
-                        blob_conv_acc = [net_outputs['blob_conv'+str(i)] for i in range(5)]
-                        blob_conv_acc = lg_to_gl(blob_conv_acc)
-                    else:
-                        blob_conv_acc = net_outputs['blob_conv']
-                ''' 
-                training_stats.UpdateIterStats(net_outputs, inner_iter)
-                loss = net_outputs['total_loss']
-                loss.backward()
+
+                #with np.errstate(divide='raise'):
+                ignore_step = False
+                try:
+                    net_outputs = maskRCNN(**input_data)
+                except RuntimeWarning:
+                    print('raised RunTime exception!')
+                    ignore_step = True
                 
+                if not ignore_step:
+                    training_stats.UpdateIterStats(net_outputs, inner_iter)
+                    loss = net_outputs['total_loss']
+                    print(type(loss), loss)
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(maskRCNN.parameters(), 1.0)
                     
             optimizer.step()
             training_stats.IterToc()

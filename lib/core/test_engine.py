@@ -262,7 +262,8 @@ def test_net(
         last_im_name = cur_im_name
         
         if blob_conv_acc:
-            blob_conv_acc = lg_to_gl(blob_conv_acc)
+            if cfg.FPN.FPN_ON:
+                blob_conv_acc = lg_to_gl(blob_conv_acc)
         
         if cfg.CASCADE.CASCADE_ON:
             cls_boxes_i, cls_segms_i, cls_keyps_i, blob_conv_acc = im_detect_all(model, im, box_proposals, timers, blob_conv_acc)
