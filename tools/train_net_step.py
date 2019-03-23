@@ -565,7 +565,7 @@ def main():
                 if not ignore_step:
                     training_stats.UpdateIterStats(net_outputs, inner_iter)
                     loss = net_outputs['total_loss']
-                    print(type(loss), loss)
+                    #print(type(loss), loss)
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(maskRCNN.parameters(), 1.0)
                     
