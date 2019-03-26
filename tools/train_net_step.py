@@ -327,7 +327,10 @@ def main():
     dataiterator = iter(dataloader)
 
     ### Model ###
-    maskRCNN = Generalized_RCNN_with_CFA()
+    if cfg.CASCADE.CASCADE_ON:
+        maskRCNN = Generalized_RCNN_with_CFA()
+    else:
+        maskRCNN = Generalized_RCNN()
 
     if cfg.CUDA:
         maskRCNN.cuda()
@@ -490,10 +493,8 @@ def main():
             training_stats.IterTic()
             optimizer.zero_grad()
             for inner_iter in range(args.iter_size):
-                if cfg.CASCADE.CASCADE_ON:
-                    input_data = get_input_data(dataiterator, dataloader, True, cfg.CASCADE.WIN_LEN)
-                else:
-                    raise NotImplementedError
+                input_data = get_input_data(dataiterator, dataloader, cfg.CASCADE.CASCADE_ON, cfg.CASCADE.WIN_LEN)
+                
                 #import pdb; pdb.set_trace();
 
                 '''

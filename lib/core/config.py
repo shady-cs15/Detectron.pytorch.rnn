@@ -33,9 +33,9 @@ cfg = __C
 # ---------------------------------------------------------------------------- #
 __C.CASCADE = AttrDict()
 
-__C.CASCADE.CASCADE_ON = True
+__C.CASCADE.CASCADE_ON = False
 __C.CASCADE.WIN_LEN = 5
-__C.CASCADE.BATCH_SIZE = 8
+__C.CASCADE.BATCH_SIZE = 2
 __C.CASCADE.CASCADE_FN = 'Cascade.fpn_convX'
 __C.CASCADE.ALLOWED_GAP = 5
 
@@ -182,7 +182,7 @@ __C.DATA_LOADER = AttrDict()
 # Number of Python threads to use for the data loader (warning: using too many
 # threads can cause GIL-based interference with Python Ops leading to *slower*
 # training; 4 seems to be the sweet spot in our experience)
-__C.DATA_LOADER.NUM_THREADS = 4
+__C.DATA_LOADER.NUM_THREADS = 1
 
 
 # ---------------------------------------------------------------------------- #
