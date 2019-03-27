@@ -69,7 +69,7 @@ __C.TRAIN.IMS_PER_BATCH = 1
 # Total number of RoIs per training minibatch =
 #   TRAIN.BATCH_SIZE_PER_IM * TRAIN.IMS_PER_BATCH * NUM_GPUS
 # E.g., a common configuration is: 512 * 2 * 8 = 8192
-__C.TRAIN.BATCH_SIZE_PER_IM = 512
+__C.TRAIN.BATCH_SIZE_PER_IM = 64
 
 # Fraction of minibatch that is labeled foreground (i.e. class > 0)
 __C.TRAIN.FG_FRACTION = 0.25
