@@ -47,7 +47,7 @@ import utils.image as image_utils
 import utils.keypoints as keypoint_utils
 
 
-def im_detect_all(model, im, box_proposals=None, timers=None, blob_conv_acc=None):
+def im_detect_all(model, im, box_proposals=None, timers=None, memory=None):
     """Process the outputs of model for testing
     Args:
       model: the network module
@@ -68,7 +68,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, blob_conv_acc=None
             model, im, box_proposals)
     else:
         scores, boxes, im_scale, blob_conv = im_detect_bbox(
-            model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, box_proposals, blob_conv_acc)
+            model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, box_proposals, memory)
     timers['im_detect_bbox'].toc()
 
     # score and boxes are from the whole image after score thresholding and nms
@@ -107,10 +107,8 @@ def im_detect_all(model, im, box_proposals=None, timers=None, blob_conv_acc=None
     else:
         cls_keyps = None
 
-    if cfg.CASCADE.CASCADE_ON:
-        return cls_boxes, cls_segms, cls_keyps, blob_conv
-    return cls_boxes, cls_segms, cls_keyps
-
+    return cls_boxes, cls_segms, cls_keyps, blob_conv
+    
 
 def im_conv_body_only(model, im, target_scale, target_max_size):
     inputs, im_scale = _get_blobs(im, None, target_scale, target_max_size)
@@ -126,9 +124,12 @@ def im_conv_body_only(model, im, target_scale, target_max_size):
     return blob_conv, im_scale
 
 
-def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None, blob_conv_acc=None):
+def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None, memory=None):
     """Prepare the bbox for testing"""
     inputs, im_scale = _get_blobs(im, boxes, target_scale, target_max_size)
+
+    # RNN model requires 4D input for image data
+    #inputs['data'] = np.expand_dims(inputs['data'], 0)
 
     if cfg.DEDUP_BOXES > 0 and not cfg.MODEL.FASTER_RCNN:
         v = np.array([1, 1e3, 1e6, 1e9, 1e12])
@@ -150,8 +151,8 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None, blob_co
         inputs['data'] = [torch.from_numpy(inputs['data'])]
         inputs['im_info'] = [torch.from_numpy(inputs['im_info'])]
 
-    if cfg.CASCADE.CASCADE_ON and blob_conv_acc:
-        inputs['blob_conv_acc'] = blob_conv_acc
+    if cfg.RNN.RNN_ON and memory:
+        inputs['memory_init'] = memory
     return_dict = model(**inputs)
 
     if cfg.MODEL.FASTER_RCNN:
@@ -189,10 +190,10 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None, blob_co
         scores = scores[inv_index, :]
         pred_boxes = pred_boxes[inv_index, :]
 
-    if cfg.CASCADE.CASCADE_ON:
-        blob_conv_accs = [return_dict['blob_conv'+str(i)] for i in range(5)]
-        return scores, pred_boxes, im_scale, blob_conv_accs
-    #print(return_dict.keys())
+    if cfg.RNN.RNN_ON:
+        blob_conv = return_dict['blob_conv']
+        memory = return_dict['memory']
+        return scores, pred_boxes, im_scale, {'blob_conv': blob_conv, 'memory': memory}
     return scores, pred_boxes, im_scale, return_dict['blob_conv']
 
 

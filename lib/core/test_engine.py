@@ -45,7 +45,7 @@ import utils.subprocess as subprocess_utils
 import utils.vis as vis_utils
 from utils.io import save_object
 from utils.timer import Timer
-from utils.cascade import check_sequence_break, lg_to_gl
+from utils.rnn import check_sequence_break, lg_to_gl
 
 logger = logging.getLogger(__name__)
 
@@ -237,7 +237,7 @@ def test_net(
     timers = defaultdict(Timer)
 
     last_im_name = None
-    blob_conv_acc = None
+    memory = None
 
     for i, entry in enumerate(roidb):
         if cfg.TEST.PRECOMPUTED_PROPOSALS:
@@ -258,17 +258,15 @@ def test_net(
         im = cv2.imread(entry['image'])
         if last_im_name:
             if check_sequence_break(last_im_name, cur_im_name):
-                blob_conv_acc = None
+                memory = None
         last_im_name = cur_im_name
         
-        if blob_conv_acc:
-            if cfg.FPN.FPN_ON:
-                blob_conv_acc = lg_to_gl(blob_conv_acc)
         
-        if cfg.CASCADE.CASCADE_ON:
-            cls_boxes_i, cls_segms_i, cls_keyps_i, blob_conv_acc = im_detect_all(model, im, box_proposals, timers, blob_conv_acc)
+        if cfg.RNN.RNN_ON:
+            cls_boxes_i, cls_segms_i, cls_keyps_i, blob_conv_with_mem = im_detect_all(model, im, box_proposals, timers, memory)
+            blob_conv, memory = blob_conv_with_mem['blob_conv'], blob_conv_with_mem['memory']
         else:    
-            cls_boxes_i, cls_segms_i, cls_keyps_i = im_detect_all(model, im, box_proposals, timers)
+            cls_boxes_i, cls_segms_i, cls_keyps_i, blob_conv = im_detect_all(model, im, box_proposals, timers)
 
         extend_results(i, all_boxes, cls_boxes_i)
         if cls_segms_i is not None:
@@ -337,7 +335,10 @@ def initialize_model_from_cfg(args, gpu_id=0):
     """Initialize a model from the global cfg. Loads test-time weights and
     set to evaluation mode.
     """
-    model = model_builder.Generalized_RCNN()
+    if not cfg.RNN.RNN_ON:
+        model = model_builder.Generalized_RCNN()
+    else:
+        model = model_builder.Generalized_RCNN_with_RNN()
     model.eval()
 
     if args.cuda:

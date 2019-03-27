@@ -18,7 +18,6 @@ import modeling.keypoint_rcnn_heads as keypoint_rcnn_heads
 import utils.blob as blob_utils
 import utils.net as net_utils
 import utils.resnet_weights_helper as resnet_utils
-import utils.cascade as cascade_splits
 
 logger = logging.getLogger(__name__)
 
@@ -125,10 +124,6 @@ class Generalized_RCNN(nn.Module):
 
         self._init_modules()
 
-        # Cascade function
-        if cfg.CASCADE.CASCADE_ON:
-            self.cascade_fn = get_func(cfg.CASCADE.CASCADE_FN)()
-            
 
     def _init_modules(self):
         if cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS:
@@ -161,46 +156,9 @@ class Generalized_RCNN(nn.Module):
 
         blob_conv = self.Conv_Body(im_data)
        
-        # concatenate and accumulate features
-        if cfg.CASCADE.CASCADE_ON:
-            if cfg.FPN.FPN_ON:
-                # if blob_conv_acc is None then it is time to reset
-                # hence it is converted to a tensor of zeros
-                if blob_conv_acc is None:
-                    blob_conv_acc = []
-                    for l in range(5):
-                        blob_conv_acc.append(torch.tensor((), dtype=blob_conv[l].dtype))
-                        blob_conv_acc[l] = blob_conv_acc[l].new_zeros(blob_conv[l].shape,
-                                                                device=blob_conv[l].get_device())
-
-                # At this point blob_conv_acc always is valid, 
-                # hence always pass through cascade function
-                # store resulting features in blob_conv 
-                for l in range(5):
-                    blob_conv_concat = torch.cat((blob_conv_acc[l], blob_conv[l]), dim=1)
-                    blob_conv[l] = self.cascade_fn(blob_conv_concat)
-
-            # cascade fn only implemented for fpn backbones 
-            else:
-                # same logic for when blob_conv_acc is None
-                if blob_conv_acc is None:
-                    blob_conv_acc = torch.tensor((), dtype=blob_conv.dtype)
-                    blob_conv_acc = blob_conv_acc.new_zeros(blob_conv.shape, 
-                                                    device=blob_conv.get_device())
-                
-                blob_conv_concat = torch.cat((blob_conv_acc, blob_conv), dim=1)
-                blob_conv = self.cascade_fn(blob_conv_concat)
-        
-        if cfg.FPN.FPN_ON:
-            # split resulting blob_conv and store in return dictionary
-            blob_conv_splits = cascade_splits.split_blob_conv(blob_conv)
         
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
         
-        # if self.training:
-        #     # can be used to infer fg/bg ratio
-        #     return_dict['rois_label'] = rpn_ret['labels_int32']
-
         if cfg.FPN.FPN_ON:
             # Retain only the blobs that will be used for RoI heads. `blob_conv` may include
             # extra blobs that are used for RPN proposals, but not for RoI heads.
@@ -401,7 +359,7 @@ class Generalized_RCNN(nn.Module):
             d_wmap = {}  # detectron_weight_mapping
             d_orphan = []  # detectron orphan weight list
             for name, m_child in self.named_children():
-                if name != 'cascade_fn':
+                if name != 'rnn_cell':
                     if list(m_child.parameters()):  # if module has any parameter
                         child_map, child_orphan = m_child.detectron_weight_mapping()
                         d_orphan.extend(child_orphan)
@@ -418,85 +376,74 @@ class Generalized_RCNN(nn.Module):
         return_dict['losses'][key] = value
 
 
-class Generalized_RCNN_with_CFA(Generalized_RCNN):
-    def __init__(self):
-        super().__init__()
 
-    def forward(self, data, im_info, roidb=None, blob_conv_init=None, **rpn_kwargs):
+class Generalized_RCNN_with_RNN(Generalized_RCNN):
+    def __init__(self):
+        if not cfg.RNN.RNN_ON:
+            print('RNN mode is not on in cfg file')
+            raise Exception
+        super().__init__()
+        self.rnn_cell = get_func(cfg.RNN.RNN_CELL)()
+
+    # main forward method to be called
+    def forward(self, data, im_info, roidb=None, memory_init=None, **rpn_kwargs):
         if cfg.PYTORCH_VERSION_LESS_THAN_040:
-            return self._forward(data, im_info, roidb=roidb, blob_conv_init=blob_conv_init, **rpn_kwargs)
+            return self._forward(data, im_info, roidb=roidb, memory_init=memory_init, **rpn_kwargs)
         else:
             with torch.set_grad_enabled(self.training):
-                return self._forward(data, im_info, roidb=roidb, blob_conv_init=blob_conv_init, **rpn_kwargs)
+                return self._forward(data, im_info, roidb=roidb, memory_init=memory_init, **rpn_kwargs)
 
-    def _forward(self, data, im_info, roidb=None, blob_conv_init=None, **rpn_kwargs):
+    # helper forward method
+    def _forward(self, data, im_info, roidb=None, memory_init=None, **rpn_kwargs):
+        
+        if cfg.FPN.FPN_ON:
+            raise NotImplementedError
+        
+        # deserialize roidb
         if self.training:
             for t in range(len(roidb)):
                 roidb[t] = list(map(lambda x: blob_utils.deserialize(x)[0], roidb[t]))
+        else:
+            data, im_info, roidb = [data], [im_info], [roidb]
                 
-        if not self.training:
-            data = [data]
-            im_info = [im_info]
-            roidb = [roidb]
-            
-        device_id = data[0].get_device()
-
-        return_dict = {}  # A dict to collect return variables
-
-        # data is a of size time_steps 
+        return_dict = {}
         time_steps = len(data)
 
         # store all backbone features
         blob_convs = [self.Conv_Body(im_data) for im_data in data]
         exemplar = blob_convs[0]
         
-        # initialize blob_conv_acc
-        if blob_conv_init is None:
-            if cfg.FPN.FPN_ON:
-                blob_conv_acc = [torch.tensor((), dtype=exemplar[l].dtype)\
-                                    .new_zeros(exemplar[l].shape, device=exemplar[l].get_device())\
-                                        for l in range(5)]
-            else:
-                blob_conv_acc = torch.tensor((), dtype=exemplar.dtype).new_zeros\
+        # initialize memory
+        if memory_init is None:
+            memory = torch.tensor((), dtype=exemplar.dtype).new_zeros\
                                     (exemplar.shape, device=exemplar.get_device())
+        else:
+            memory = memory_init
 
         if self.training:
             return_dict['losses'] = {}
             return_dict['metrics'] = {}
 
         # unroll across time
+        memories = []
         for t in range(time_steps):
-
-            # get F_t
             blob_conv = blob_convs[t]
-            if cfg.FPN.FPN_ON:
-                for l in range(self.num_roi_levels):
-                    blob_conv_cat = torch.cat((blob_conv_acc[l], blob_conv[l]), dim=1)
-                    blob_conv_acc[l] = self.cascade_fn(blob_conv_cat)
-            else:
-                blob_conv_cat = torch.cat((blob_conv_acc, blob_conv), dim=1)
-                blob_conv_acc = self.cascade_fn(blob_conv_cat)
-
-            # get G_t
-            blob_conv = blob_conv_acc
-
-            # run RPN
-            rpn_ret = self.RPN(blob_conv, im_info[t], roidb[t])
+            memory = self.rnn_cell(blob_conv, memory)
+            memories.append(memory)
             
-            # if self.training:
-            #     # can be used to infer fg/bg ratio
-            #     return_dict['rois_label'] = rpn_ret['labels_int32']
-
-            if cfg.FPN.FPN_ON:
-                # Retain only the blobs that will be used for RoI heads. `blob_conv` may include
-                # extra blobs that are used for RPN proposals, but not for RoI heads.
-                blob_conv = blob_conv[-self.num_roi_levels:]
-
+            if im_info is None:
+                print('im_info is none')
+            if roidb is None:
+                print('roidb is none')
+            
+            # run RPN
+            rpn_ret = self.RPN(memory, im_info[t], roidb[t])
+            
             if not cfg.MODEL.RPN_ONLY:
                 if cfg.MODEL.SHARE_RES5 and self.training:
-                    box_feat, res5_feat = self.Box_Head(blob_conv, rpn_ret)
+                    box_feat, res5_feat = self.Box_Head(memory, rpn_ret)
                 else:
-                    box_feat = self.Box_Head(blob_conv, rpn_ret)
+                    box_feat = self.Box_Head(memory, rpn_ret)
                 cls_score, bbox_pred = self.Box_Outs(box_feat)
             else:
                 # TODO: complete the returns for RPN only situation
@@ -556,6 +503,12 @@ class Generalized_RCNN_with_CFA(Generalized_RCNN):
                 return_dict['losses'][k] = v.unsqueeze(0)
             for k, v in return_dict['metrics'].items():
                 return_dict['metrics'][k] = v.unsqueeze(0)
+        else:
+            # Testing
+            return_dict['rois'] = rpn_ret['rois']
+            return_dict['cls_score'] = cls_score
+            return_dict['bbox_pred'] = bbox_pred
 
-        return_dict['blob_conv'] = blob_conv_acc
+        return_dict['memory'] = memory
+        return_dict['blob_conv'] = blob_conv
         return return_dict

@@ -29,22 +29,22 @@ cfg = __C
 # prefer 'ENABLED' instead
 
 # ---------------------------------------------------------------------------- #
-# Cascade options
+# RNN options
 # ---------------------------------------------------------------------------- #
-__C.CASCADE = AttrDict()
+__C.RNN = AttrDict()
 
-__C.CASCADE.CASCADE_ON = False
-__C.CASCADE.WIN_LEN = 5
-__C.CASCADE.BATCH_SIZE = 2
-__C.CASCADE.CASCADE_FN = 'Cascade.fpn_convX'
-__C.CASCADE.ALLOWED_GAP = 5
+__C.RNN.RNN_ON = True
+__C.RNN.WIN_LEN = 5
+__C.RNN.BATCH_SIZE = 2
+__C.RNN.RNN_CELL = 'RNN.vanilla_resnet50_conv4'
+__C.RNN.ALLOWED_GAP = 5
 
 # ---------------------------------------------------------------------------- #
 # Training options
 # ---------------------------------------------------------------------------- #
 __C.TRAIN = AttrDict()
 
-# Late filtering, should be on for cascade mode
+# Late filtering, should be on for rnn mode
 __C.TRAIN.LATE_FILTERING = False
 
 # Datasets to train on

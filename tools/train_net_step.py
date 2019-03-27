@@ -25,12 +25,12 @@ import utils.misc as misc_utils
 from core.config import cfg, cfg_from_file, cfg_from_list, assert_and_infer_cfg
 from datasets.roidb import combined_roidb_for_training
 from roi_data.loader import RoiDataLoader, MinibatchSampler, BatchSampler, collate_minibatch
-from modeling.model_builder import Generalized_RCNN, Generalized_RCNN_with_CFA
+from modeling.model_builder import Generalized_RCNN, Generalized_RCNN_with_RNN
 from utils.detectron_weight_helper import load_detectron_weight
 from utils.logging import setup_logging
 from utils.timer import Timer
 from utils.training_stats import TrainingStats
-from utils.cascade import check_sequence_break_onlist, lg_to_gl
+from utils.rnn import check_sequence_break_onlist, lg_to_gl
 
 # Set up logging and load config options
 logger = setup_logging(__name__)
@@ -63,7 +63,7 @@ def parse_args():
     parser.add_argument(
         '--no_cuda', dest='cuda', help='Do not use CUDA device', action='store_false')
     parser.add_argument(
-        '--cascade', dest='cascaded', help='Use cascade mode', action='store_true')
+        '--rnn', dest='rnn', help='Use rnn mode', action='store_true')
     # Optimization
     # These options has the highest prioity and can overwrite the values in config file
     # or values set by set_cfgs. `None` means do not overwrite.
@@ -139,14 +139,12 @@ def save_ckpt(output_dir, args, step, train_size, model, optimizer):
 
 
 def allow_configs(args):
-    #if args.cascaded is True and cfg.TRAIN.ASPECT_GROUPING is True:
-    #    raise Exception('aspect grouping not supported for cascade mode')
-    if args.cascaded is True and cfg.TRAIN.ASPECT_CROPPING is True:
-        raise Exception('aspect cropping not supported for cascade mode')
-    if args.batch_size * args.iter_size != cfg.CASCADE.BATCH_SIZE:
-        raise Exception('effective batch size should be same as config.CASCADE.BATCH_SIZE')
-    if args.cascaded != cfg.CASCADE.CASCADE_ON:
-        raise Exception('cascade option should be changed in cfg.CASCADE.CASCADE_ON')
+    if args.rnn is True and cfg.TRAIN.ASPECT_CROPPING is True:
+        raise Exception('aspect cropping not supported for rnn mode')
+    if args.batch_size * args.iter_size != cfg.RNN.BATCH_SIZE:
+        raise Exception('effective batch size should be same as config.RNN.BATCH_SIZE')
+    if args.rnn != cfg.RNN.RNN_ON:
+        raise Exception('rnn option should be changed in cfg.RNN.RNN_ON')
     print('configs are allowable...')
     
 def get_input_data(dataiterator, dataloader, with_cfa=False, tsteps=3):
@@ -186,7 +184,6 @@ def get_input_data(dataiterator, dataloader, with_cfa=False, tsteps=3):
                     add_to_dict(temp_data, k, v)
             last_im_names = cur_im_names
             
-        #del input_data
         input_data = {}
         for g in range(cfg.NUM_GPUS):
             for k in temp_data:
@@ -195,7 +192,6 @@ def get_input_data(dataiterator, dataloader, with_cfa=False, tsteps=3):
                     gpu_batch.append(temp_data[k][t][g])
                 add_to_dict(input_data, k, gpu_batch)
         del temp_data
-        #import pdb; pdb.set_trace();
         return input_data
 
 def main():
@@ -311,7 +307,7 @@ def main():
     train_size = roidb_size // args.batch_size * args.batch_size
 
     batchSampler = BatchSampler(
-        sampler=MinibatchSampler(ratio_list, ratio_index, args.cascaded),
+        sampler=MinibatchSampler(ratio_list, ratio_index, args.rnn),
         batch_size=args.batch_size,
         drop_last=True
     )
@@ -327,8 +323,8 @@ def main():
     dataiterator = iter(dataloader)
 
     ### Model ###
-    if cfg.CASCADE.CASCADE_ON:
-        maskRCNN = Generalized_RCNN_with_CFA()
+    if cfg.RNN.RNN_ON:
+        maskRCNN = Generalized_RCNN_with_RNN()
     else:
         maskRCNN = Generalized_RCNN()
 
@@ -493,83 +489,14 @@ def main():
             training_stats.IterTic()
             optimizer.zero_grad()
             for inner_iter in range(args.iter_size):
-                input_data = get_input_data(dataiterator, dataloader, cfg.CASCADE.CASCADE_ON, cfg.CASCADE.WIN_LEN)
+                input_data = get_input_data(dataiterator, dataloader, cfg.RNN.RNN_ON, cfg.RNN.WIN_LEN)
+                net_outputs = maskRCNN(**input_data)
+                training_stats.UpdateIterStats(net_outputs, inner_iter)
+                loss = net_outputs['total_loss']
+
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(maskRCNN.parameters(), 1.25)
                 
-                #import pdb; pdb.set_trace();
-
-                '''
-                try:
-                    input_data = next(dataiterator)
-                except StopIteration:
-                    dataiterator = iter(dataloader)
-                    input_data = next(dataiterator)
-
-                for key in input_data:
-                    if key not in ['roidb', 'im_name']: # roidb is a list of ndarrays with inconsistent length
-                        input_data[key] = list(map(Variable, input_data[key]))
-
-                if cfg.CASCADE.CASCADE_ON:
-                    context_data = {}
-                    for k, v in input_data.items():
-                        if k == 'data':
-                            context_data[k] = v
-                            for g in range(cfg.NUM_GPUS):
-                                context_data[k][g] = [context_data[k][g]]
-
-                    for i in range(2):
-                        input_data = next(dataiterator)
-                        for key in input_data:
-                            if key not in ['roidb', 'im_name']: # roidb is a list of ndarrays with inconsistent length
-                                input_data[key] = list(map(Variable, input_data[key]))
-                        for k, v in input_data.items():
-                            if k == 'data':
-                                for g in range(cfg.NUM_GPUS):
-                                    context_data[k][g].append(v[g])
-                            else:
-                                context_data[k] = v
-
-                    input_data = context_data
-
-                    cur_im_names = input_data['im_name']
-                    if step > 0 and last_im_names is not None:
-                        sequence_breaks = check_sequence_break_onlist(last_im_names, cur_im_names)
-                        reset = any(sequence_breaks)
-                        if reset:
-                            blob_conv_acc = None
-                    else:
-                        reset = True
-                        blob_conv_acc = None
-                    #import pdb; pdb.set_trace()
-                    last_im_names = cur_im_names
-
-                    input_data['reset'] = [reset]*cfg.NUM_GPUS
-                    if blob_conv_acc is None:
-                        blob_conv_acc = [blob_conv_acc]*cfg.NUM_GPUS
-                    else:
-                        for device_id in range(len(blob_conv_acc)):
-                            if cfg.FPN.FPN_ON:
-                                for level in range(len(blob_conv_acc[device_id])):
-                                    blob_conv_acc[device_id][level] = blob_conv_acc[device_id][level].detach()
-                            else:
-                                blob_conv_acc[device_id] = blob_conv_acc[device_id].detach()                                        
-                    input_data['blob_conv_acc'] = blob_conv_acc
-                '''
-
-                #with np.errstate(divide='raise'):
-                ignore_step = False
-                try:
-                    net_outputs = maskRCNN(**input_data)
-                except RuntimeWarning:
-                    print('raised RunTime exception!')
-                    ignore_step = True
-                
-                if not ignore_step:
-                    training_stats.UpdateIterStats(net_outputs, inner_iter)
-                    loss = net_outputs['total_loss']
-                    #print(type(loss), loss)
-                    loss.backward()
-                    torch.nn.utils.clip_grad_norm_(maskRCNN.parameters(), 1.0)
-                    
             optimizer.step()
             training_stats.IterToc()
 

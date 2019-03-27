@@ -147,11 +147,11 @@ def cal_minibatch_ratio(ratio_list):
 
 
 class MinibatchSampler(torch_sampler.Sampler):
-    def __init__(self, ratio_list, ratio_index, cascaded=False):
+    def __init__(self, ratio_list, ratio_index, rnn=False):
         self.ratio_list = ratio_list
         self.ratio_index = ratio_index
         self.num_data = len(ratio_list)
-        self.cascaded = cascaded
+        self.rnn = rnn
 
         if cfg.TRAIN.ASPECT_GROUPING:
             # Given the ratio_list, we want to make the ratio same
@@ -160,7 +160,7 @@ class MinibatchSampler(torch_sampler.Sampler):
 
     def __iter__(self):
         if cfg.TRAIN.ASPECT_GROUPING:
-            if self.cascaded:
+            if self.rnn:
                 '''
                 print('testing phase')
                 n = self.num_data // (cfg.CASCADE.WIN_LEN * cfg.CASCADE.BATCH_SIZE)
@@ -184,12 +184,12 @@ class MinibatchSampler(torch_sampler.Sampler):
                 ratio_index = self.ratio_index[indices]
                 ratio_list_minibatch = self.ratio_list_minibatch[indices]
         else:
-            if self.cascaded:
-                n = self.num_data // (cfg.CASCADE.WIN_LEN * cfg.CASCADE.BATCH_SIZE)
-                indices = np.arange(n * cfg.CASCADE.WIN_LEN * cfg.CASCADE.BATCH_SIZE)
-                indices = indices.reshape(-1, cfg.CASCADE.WIN_LEN)
+            if self.rnn:
+                n = self.num_data // (cfg.RNN.WIN_LEN * cfg.RNN.BATCH_SIZE)
+                indices = np.arange(n * cfg.RNN.WIN_LEN * cfg.RNN.BATCH_SIZE)
+                indices = indices.reshape(-1, cfg.RNN.WIN_LEN)
                 npr.shuffle(indices)
-                indices = indices.reshape(-1, cfg.CASCADE.BATCH_SIZE, cfg.CASCADE.WIN_LEN)
+                indices = indices.reshape(-1, cfg.RNN.BATCH_SIZE, cfg.RNN.WIN_LEN)
                 indices = indices.transpose(0, 2, 1)
                 rand_perm = indices.flatten()
             else:

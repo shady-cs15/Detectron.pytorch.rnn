@@ -70,7 +70,7 @@ def gather(outputs, target_device, dim=0):
         elif isinstance(out, collections.Mapping):
             ret_dict = {}
             for key in out:
-                if key.startswith('blob_conv'):
+                if key.startswith('blob_conv') or key.startswith('memory'):
                     ret_dict[key] = [d[key] for d in outputs]
                 else:    
                     ret_dict[key] = gather_map([d[key] for d in outputs])
