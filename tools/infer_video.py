@@ -84,6 +84,9 @@ def main():
     if not torch.cuda.is_available():
         sys.exit("Need a CUDA device to run the code.")
 
+    if not cfg.RNN.RNN_ON:
+        print('RNN mode must be on')
+        raise Exception
     args = parse_args()
     print('Called with args:')
     print(args)

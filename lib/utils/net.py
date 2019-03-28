@@ -160,7 +160,7 @@ def load_ckpt(model, ckpt):
     mapping, _ = model.detectron_weight_mapping
     state_dict = {}
     for name in ckpt:
-        if name.startswith('cascade_fn'):
+        if name.startswith('rnn_cell'):
             state_dict[name] = ckpt[name]
         elif mapping[name]:
             state_dict[name] = ckpt[name]
