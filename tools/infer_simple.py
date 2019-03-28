@@ -14,6 +14,7 @@ from six.moves import xrange
 # Use a non-interactive backend
 import matplotlib
 matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 import numpy as np
 import cv2
@@ -73,6 +74,9 @@ def parse_args():
         default="infer_outputs")
     parser.add_argument(
         '--merge_pdfs', type=distutils.util.strtobool, default=True)
+    parser.add_argument('--save_blob_conv', help='save l2 norm of blob_conv', action='store_true')
+    parser.add_argument('--blob_conv_dir', help='directory to save blob_convs', default=None)
+
 
     args = parser.parse_args()
 
@@ -84,6 +88,9 @@ def main():
 
     if not torch.cuda.is_available():
         sys.exit("Need a CUDA device to run the code.")
+    if cfg.RNN.RNN_ON:
+        print('RNN mode must be off')
+        raise Exception
 
     args = parse_args()
     print('Called with args:')
@@ -141,6 +148,8 @@ def main():
     num_images = len(imglist)
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
+    if args.save_blob_conv and not os.path.exists(args.blob_conv_dir):
+        os.makedirs(args.blob_conv_dir)
 
     for i in xrange(num_images):
         print('img', i)
@@ -165,6 +174,12 @@ def main():
             thresh=0.7,
             kp_thresh=2
         )
+
+        if args.save_blob_conv:
+            blob_conv_norm = torch.norm(blob_conv[0], dim=1).cpu().numpy()
+            plt.imshow(blob_conv_norm[0], cmap=plt.get_cmap('viridis_r'))
+            file_id = os.path.join(args.blob_conv_dir, imglist[i].split('/')[-1].split('.')[0]+'.png')
+            plt.savefig(file_id)
 
     if args.merge_pdfs and num_images > 1:
         merge_out_path = '{}/results.pdf'.format(args.output_dir)

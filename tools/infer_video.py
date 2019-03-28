@@ -14,6 +14,7 @@ from six.moves import xrange
 # Use a non-interactive backend
 import matplotlib
 matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 import numpy as np
 import cv2
@@ -73,6 +74,8 @@ def parse_args():
         default="infer_outputs")
     parser.add_argument(
         '--merge_pdfs', type=distutils.util.strtobool, default=True)
+    parser.add_argument('--save_memory', help='save l2 norm of memories', action='store_true')
+    parser.add_argument('--memory_dir', help='directory to save memories', default=None)
 
     args = parser.parse_args()
 
@@ -143,6 +146,8 @@ def main():
     num_images = len(imglist)
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
+    if args.save_memory and not os.path.exists(args.memory_dir):
+        os.makedirs(args.memory_dir)
 
     memory = None
     imglist = sorted(imglist)
@@ -171,7 +176,13 @@ def main():
             thresh=0.7,
             kp_thresh=2
         )
-
+        
+        if args.save_memory:
+            memory_norm = torch.norm(memory[0], dim=1).cpu().numpy()
+            plt.imshow(memory_norm[0], cmap=plt.get_cmap('viridis_r'))
+            file_id = os.path.join(args.memory_dir, imglist[i].split('/')[-1].split('.')[0]+'.png')
+            plt.savefig(file_id)
+        
     if args.merge_pdfs and num_images > 1:
         merge_out_path = '{}/results.pdf'.format(args.output_dir)
         if os.path.exists(merge_out_path):
