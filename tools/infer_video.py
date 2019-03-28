@@ -26,7 +26,7 @@ import _init_paths
 import nn as mynn
 from core.config import cfg, cfg_from_file, cfg_from_list, assert_and_infer_cfg
 from core.test import im_detect_all
-from modeling.model_builder import Generalized_RCNN
+from modeling.model_builder import Generalized_RCNN_with_RNN
 import datasets.dummy_datasets as datasets
 import utils.misc as misc_utils
 import utils.net as net_utils
@@ -81,7 +81,6 @@ def parse_args():
 
 def main():
     """main function"""
-    raise NotImplementedError
     if not torch.cuda.is_available():
         sys.exit("Need a CUDA device to run the code.")
 
@@ -98,6 +97,9 @@ def main():
     elif args.dataset.startswith("keypoints_coco"):
         dataset = datasets.get_coco_dataset()
         cfg.MODEL.NUM_CLASSES = 2
+    elif args.dataset == 'imnet_vid':
+        dataset = datasets.get_imnet_vid_dataset()
+        cfg.MODEL.NUM_CLASSES = len(dataset.classes)
     else:
         raise ValueError('Unexpected dataset name: {}'.format(args.dataset))
 
@@ -112,7 +114,7 @@ def main():
     cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS = False  # Don't need to load imagenet pretrained weights
     assert_and_infer_cfg()
 
-    maskRCNN = Generalized_RCNN()
+    maskRCNN = Generalized_RCNN_with_RNN()
 
     if args.cuda:
         maskRCNN.cuda()
@@ -139,6 +141,7 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
+    memory = None
     for i in xrange(num_images):
         print('img', i)
         im = cv2.imread(imglist[i])
@@ -146,7 +149,9 @@ def main():
 
         timers = defaultdict(Timer)
 
-        cls_boxes, cls_segms, cls_keyps = im_detect_all(maskRCNN, im, timers=timers)
+        cls_boxes, cls_segms, cls_keyps, blob_conv_with_mem = im_detect_all(maskRCNN, im, timers=timers, memory=memory)
+        blob_conv = blob_conv_with_mem['blob_conv']
+        memory = blob_conv_with_mem['memory']
 
         im_name, _ = os.path.splitext(os.path.basename(imglist[i]))
         vis_utils.vis_one_image(
