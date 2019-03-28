@@ -260,7 +260,7 @@ def test_net(
             if check_sequence_break(last_im_name, cur_im_name):
                 memory = None
         last_im_name = cur_im_name
-        
+
         
         if cfg.RNN.RNN_ON:
             cls_boxes_i, cls_segms_i, cls_keyps_i, blob_conv_with_mem = im_detect_all(model, im, box_proposals, timers, memory)

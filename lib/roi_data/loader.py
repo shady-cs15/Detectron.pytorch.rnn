@@ -186,19 +186,17 @@ class MinibatchSampler(torch_sampler.Sampler):
         else:
             if self.rnn:
                 win_len = cfg.RNN.WIN_LEN
-                #if cfg.RNN.SKIP_FRAMES > 0:
-                #    win_len *= (cfg.RNN.SKIP_FRAMES + 1)
+                if cfg.RNN.SKIP_FRAMES > 0:
+                    win_len *= (cfg.RNN.SKIP_FRAMES + 1)
                 n = self.num_data // (win_len * cfg.RNN.BATCH_SIZE)
                 indices = np.arange(n * win_len * cfg.RNN.BATCH_SIZE)
                 indices = indices.reshape(-1, win_len)
                 npr.shuffle(indices)
                 indices = indices.reshape(-1, cfg.RNN.BATCH_SIZE, win_len)
-                print(indices, indices.shape)
-                #if cfg.RNN.SKIP_FRAMES > 0:
-                #    indices = np.take(indices, np.arange(0, win_len, cfg.RNN.SKIP_FRAMES), axis=2)
+                if cfg.RNN.SKIP_FRAMES > 0:
+                    indices = np.take(indices, np.arange(0, win_len, cfg.RNN.SKIP_FRAMES+1), axis=2)
                 indices = indices.transpose(0, 2, 1)
                 rand_perm = indices.flatten()
-                #print(rand_perm)
             else:
                 rand_perm = npr.permutation(self.num_data)
             ratio_list = self.ratio_list[rand_perm]
