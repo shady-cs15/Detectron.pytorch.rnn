@@ -158,7 +158,9 @@ def get_input_data(dataiterator, dataloader, with_cfa=False, tsteps=3):
         except StopIteration:
             dataiterator = iter(dataloader)
             input_data = next(dataiterator)
-        return input_data
+            print('stop iteration raised')
+            return input_data, dataiterator
+        return input_data, None
 
     def add_to_dict(dict, key, value):
         if key in dict:
@@ -167,13 +169,20 @@ def get_input_data(dataiterator, dataloader, with_cfa=False, tsteps=3):
             dict[key] = [value]
 
     if not with_cfa:
-        return get_next(dataiterator, dataloader)
+        data, ret_iterator = get_next(dataiterator, dataloader)
+        if ret_iterator is not None:
+            dataiterator = ret_iterator
+        return data, dataiterator
     else:
         temp_data = {}
         last_im_names = None
         for t in range(tsteps):
-            input_data = get_next(dataiterator, dataloader)
+            input_data, ret_iterator = get_next(dataiterator, dataloader)
+            if ret_iterator is not None:
+                dataiterator = ret_iterator
+                print('resetting iterator')
             cur_im_names = input_data['im_name']
+            print(cur_im_names)
             if t > 0 and last_im_names is not None:
                 sequence_breaks = check_sequence_break_onlist(last_im_names, cur_im_names)
                 reset = any(sequence_breaks)
@@ -196,7 +205,7 @@ def get_input_data(dataiterator, dataloader, with_cfa=False, tsteps=3):
                     gpu_batch.append(temp_data[k][t][g])
                 add_to_dict(input_data, k, gpu_batch)
         del temp_data
-        return input_data
+        return input_data, dataiterator
 
 def main():
     """Main function"""
@@ -499,7 +508,8 @@ def main():
             training_stats.IterTic()
             optimizer.zero_grad()
             for inner_iter in range(args.iter_size):
-                input_data = get_input_data(dataiterator, dataloader, cfg.RNN.RNN_ON, cfg.RNN.WIN_LEN)
+                input_data, dataiterator = get_input_data(dataiterator, dataloader, cfg.RNN.RNN_ON, cfg.RNN.WIN_LEN)
+                print(len(input_data['im_name'][0]), len(input_data['im_name'][1]))
                 net_outputs = maskRCNN(**input_data)
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']
