@@ -115,6 +115,10 @@ def parse_args():
         '--use_tfboard', help='Use tensorflow tensorboard to log training info',
         action='store_true')
 
+    # to initialize with baseline weights
+    parser.add_argument('--load_baseline_ckpt', help='path to baseline checkpoint')
+    parser.add_argument('--initialize_with_baseline_weights', help='boolean', action='store_true')
+
     return parser.parse_args()
 
 
@@ -407,6 +411,12 @@ def main():
     if args.load_detectron:  #TODO resume for detectron weights (load sgd momentum values)
         logging.info("loading Detectron weights %s", args.load_detectron)
         load_detectron_weight(maskRCNN, args.load_detectron)
+
+    if args.initialize_with_baseline_weights:
+        logging.info("loading baseline weights from %s", args.load_baseline_ckpt)
+        checkpoint = torch.load(args.load_baseline_ckpt, map_location=lambda storage, loc: storage)
+        net_utils.load_ckpt(maskRCNN, checkpoint['model'])
+        logging.info("baseline weights loaded ...")
 
     lr = optimizer.param_groups[0]['lr']  # lr of non-bias parameters, for commmand line outputs.
 
