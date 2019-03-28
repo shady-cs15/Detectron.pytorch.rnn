@@ -145,8 +145,9 @@ def main():
         os.makedirs(args.output_dir)
 
     memory = None
+    imglist = sorted(imglist)
     for i in xrange(num_images):
-        print('img', i)
+        print('img', imglist[i])
         im = cv2.imread(imglist[i])
         assert im is not None
 
