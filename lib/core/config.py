@@ -37,8 +37,8 @@ __C.RNN.RNN_ON = True
 __C.RNN.WIN_LEN = 5
 __C.RNN.BATCH_SIZE = 2
 __C.RNN.RNN_CELL = 'RNN.vanilla_resnet50_conv4_v0'
-__C.RNN.ALLOWED_GAP = 7
-__C.RNN.SKIP_FRAMES = 2
+__C.RNN.ALLOWED_GAP = 10
+__C.RNN.SKIP_FRAMES = 5
 
 # ---------------------------------------------------------------------------- #
 # Training options

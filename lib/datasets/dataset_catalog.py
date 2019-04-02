@@ -228,9 +228,9 @@ DATASETS = {
     # image net vid
     'imnet_vid_train': {
         IM_DIR:
-            _DATA_DIR + '/imnet_vid/images/val',
+            _DATA_DIR + '/imnet_vid/images/train',
         ANN_FN:
-            _DATA_DIR + '/imnet_vid/annotations/val.json',
+            _DATA_DIR + '/imnet_vid/annotations/train.json',
         DEVKIT_DIR:
             _DATA_DIR + '/imnet_vid/VOCdevkit'
     },
