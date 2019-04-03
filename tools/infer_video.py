@@ -76,6 +76,7 @@ def parse_args():
         '--merge_pdfs', type=distutils.util.strtobool, default=True)
     parser.add_argument('--save_memory', help='save l2 norm of memories', action='store_true')
     parser.add_argument('--memory_dir', help='directory to save memories', default=None)
+    parser.add_argument('--skip_frames', help='frames to skip', default=0, type=int)
 
     args = parser.parse_args()
 
@@ -151,7 +152,7 @@ def main():
 
     memory = None
     imglist = sorted(imglist)
-    for i in xrange(num_images):
+    for i in xrange(0, num_images, args.skip_frames+1):
         print('img', imglist[i])
         im = cv2.imread(imglist[i])
         assert im is not None
@@ -179,18 +180,10 @@ def main():
         
         if args.save_memory:
             memory_norm = torch.norm(memory[0], dim=1).cpu().numpy()
-            plt.imshow(memory_norm[0], cmap=plt.get_cmap('viridis_r'))
+            plt.imshow(memory_norm[0], cmap=plt.get_cmap('viridis'))
             file_id = os.path.join(args.memory_dir, imglist[i].split('/')[-1].split('.')[0]+'.png')
             plt.savefig(file_id)
         
-    if args.merge_pdfs and num_images > 1:
-        merge_out_path = '{}/results.pdf'.format(args.output_dir)
-        if os.path.exists(merge_out_path):
-            os.remove(merge_out_path)
-        command = "pdfunite {}/*.pdf {}".format(args.output_dir,
-                                                merge_out_path)
-        subprocess.call(command, shell=True)
-
 
 if __name__ == '__main__':
     main()
