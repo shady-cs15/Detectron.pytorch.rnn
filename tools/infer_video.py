@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 import cv2
+import shutil
 
 import torch
 import torch.nn as nn
@@ -71,7 +72,7 @@ def parse_args():
     parser.add_argument(
         '--output_dir',
         help='directory to save demo results',
-        default="infer_outputs")
+        default=None)
     parser.add_argument(
         '--merge_pdfs', type=distutils.util.strtobool, default=True)
     parser.add_argument('--save_memory', help='save l2 norm of memories', action='store_true')
@@ -98,6 +99,13 @@ def main():
     assert args.image_dir or args.images
     assert bool(args.image_dir) ^ bool(args.images)
 
+    root_dir = os.path.dirname(args.image_dir.strip('/'))
+    if args.memory_dir is None and args.save_memory:
+        args.memory_dir = os.path.join(root_dir, 'memory')
+        print('memories will be saved to', args.memory_dir)
+    if args.output_dir is None:
+        args.output_dir = os.path.join(root_dir, 'dets-rnn')
+        print('outputs will be saved to', args.output_dir)
     if args.dataset.startswith("coco"):
         dataset = datasets.get_coco_dataset()
         cfg.MODEL.NUM_CLASSES = len(dataset.classes)
@@ -145,6 +153,10 @@ def main():
     else:
         imglist = args.images
     num_images = len(imglist)
+
+    # clear output and memory dir
+    shutil.rmtree(args.output_dir)
+    shutil.rmtree(args.memory_dir)
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     if args.save_memory and not os.path.exists(args.memory_dir):
