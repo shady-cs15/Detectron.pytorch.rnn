@@ -232,7 +232,7 @@ DATASETS = {
         ANN_FN:
             _DATA_DIR + '/imnet_vid/annotations/train.json',
         DEVKIT_DIR:
-            _DATA_DIR + '/imnet_vid/VOCdevkit'
+            _DATA_DIR + '/imnet_vid/devkit'
     },
     'imnet_vid_val': {
         IM_DIR:
@@ -240,7 +240,15 @@ DATASETS = {
         ANN_FN:
             _DATA_DIR + '/imnet_vid/annotations/val.json',
         DEVKIT_DIR:
-            _DATA_DIR + '/imnet_vid/VOCdevkit'
+            _DATA_DIR + '/imnet_vid/devkit'
+    },
+
+    # image net det
+    'imnet_det_train': {
+        IM_DIR:
+            _DATA_DIR + '/imnet_det/images/train',
+        ANN_FN:
+            _DATA_DIR + '/imnet_det/annotations/train.json'
     },
 
 

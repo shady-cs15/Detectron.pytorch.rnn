@@ -42,6 +42,7 @@ resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
 
 # global declaration of dataiterator, dataloader 
 dataiterator, dataloader = None, None
+det_dataiterator, det_dataloader = None, None
 
 def parse_args():
     """Parse input arguments"""
@@ -121,7 +122,6 @@ def parse_args():
     # to initialize with baseline weights
     parser.add_argument('--load_baseline_ckpt', help='path to baseline checkpoint')
     parser.add_argument('--initialize_with_baseline_weights', help='boolean', action='store_true')
-
     return parser.parse_args()
 
 
@@ -154,14 +154,28 @@ def allow_configs(args):
         raise Exception('rnn option should be changed in cfg.RNN.RNN_ON')
     print('configs are allowable...')
     
-def get_input_data(with_cfa=False, tsteps=3):
-    def get_next():
+def get_input_data(rnn_mode=False, tsteps=3):
+    def get_next( sample_static=False):
         global dataiterator, dataloader
+        global det_dataiterator, det_dataloader
+
+        if not sample_static: 
+            sampled_iterator = dataiterator
+            sampled_loader = dataloader
+        else:
+            sampled_iterator = det_dataiterator
+            sampled_loader = det_dataloader
         try:
-            input_data = next(dataiterator)
+            input_data = next(sampled_iterator)
         except StopIteration:
-            dataiterator = iter(dataloader)
-            input_data = next(dataiterator)
+            sampled_iterator = iter(sampled_loader)
+            input_data = next(sampled_iterator)
+            if not sample_static:
+                dataiterator = sampled_iterator 
+                dataloader = sampled_loader
+            else:
+                det_dataiterator = sampled_iterator 
+                det_dataloader = sampled_loader
         return input_data
 
     def add_to_dict(dict, key, value):
@@ -170,26 +184,41 @@ def get_input_data(with_cfa=False, tsteps=3):
         else:
             dict[key] = [value]
 
-    if not with_cfa:
-        return get_next()
+    if not rnn_mode:
+        if not cfg.SUPPORT.use_DET:
+            sample_static = False
+        else:
+            sample_static = (np.random.uniform() < cfg.SUPPORT.SAMPLE_PROB)
+        return get_next(sample_static)
     else:
         temp_data = {}
-        last_im_names = None
-        for t in range(tsteps):
-            input_data = get_next()
-            cur_im_names = input_data['im_name']
-            if t > 0 and last_im_names is not None:
-                sequence_breaks = check_sequence_break_onlist(last_im_names, cur_im_names)
-                reset = any(sequence_breaks)
-                if reset:
-                    break
+
+        if not cfg.SUPPORT.use_DET:
+            sample_static = False
+        else:
+            sample_static = (np.random.uniform() < cfg.SUPPORT.SAMPLE_PROB)
+        if not sample_static:
+            last_im_names = None
+            for t in range(tsteps):
+                input_data = get_next()
+                cur_im_names = input_data['im_name']
+                if t > 0 and last_im_names is not None:
+                    sequence_breaks = check_sequence_break_onlist(last_im_names, cur_im_names)
+                    reset = any(sequence_breaks)
+                    if reset:
+                        break
+                    else:
+                        for k, v in input_data.items():
+                            add_to_dict(temp_data, k, v)
                 else:
                     for k, v in input_data.items():
                         add_to_dict(temp_data, k, v)
-            else:
+                last_im_names = cur_im_names
+        else:
+            input_data = get_next(sample_static=True)
+            for t in range(tsteps):
                 for k, v in input_data.items():
                     add_to_dict(temp_data, k, v)
-            last_im_names = cur_im_names
             
         input_data = {}
         for g in range(cfg.NUM_GPUS):
@@ -226,6 +255,9 @@ def main():
         cfg.MODEL.NUM_CLASSES = 352
     elif args.dataset == "imnet_vid":
         cfg.TRAIN.DATASETS = ('imnet_vid_train',)
+        cfg.MODEL.NUM_CLASSES = 31
+    elif args.dataset == "imnet_det":
+        cfg.TRAIN.DATASETS = ('imnet_det_train',)
         cfg.MODEL.NUM_CLASSES = 31
     elif args.dataset == "adl":
         cfg.TRAIN.DATASETS = ('adl_train',)
@@ -330,6 +362,34 @@ def main():
         num_workers=cfg.DATA_LOADER.NUM_THREADS,
         collate_fn=collate_minibatch)
     dataiterator = iter(dataloader)
+
+    ### create iterator for ImageNET DET
+    if cfg.SUPPORT.use_DET:
+        logger.info('using ImageNET DET subset')
+        timers['det_roidb'].tic()
+        det_roidb, det_ratio_list, det_ratio_index = combined_roidb_for_training(
+        ('imnet_det_train',), ())
+        timers['det_roidb'].toc()
+        det_roidb_size = len(det_roidb)
+        logger.info('{:d} roidb entries'.format(det_roidb_size))
+        logger.info('Takes %.2f sec(s) to construct DET roidb', timers['det_roidb'].average_time)
+
+        det_batchSampler = BatchSampler(
+            sampler=MinibatchSampler(det_ratio_list, det_ratio_index, False),
+            batch_size=args.batch_size,
+            drop_last=True)
+
+        det_dataset = RoiDataLoader(det_roidb, 31, training=True)
+
+        global det_dataloader, det_dataiterator
+        det_dataloader = torch.utils.data.DataLoader(
+                            det_dataset,
+                            batch_sampler=det_batchSampler,
+                            num_workers=cfg.DATA_LOADER.NUM_THREADS,
+                            collate_fn=collate_minibatch)
+        det_dataiterator = iter(det_dataloader)
+    elif cfg.RNN.RNN_ON:
+        logger.warning('not using ImageNET DET')
 
     ### Model ###
     if cfg.RNN.RNN_ON:
@@ -450,7 +510,7 @@ def main():
     ### Training Loop ###
     maskRCNN.train()
 
-    CHECKPOINT_PERIOD = int(cfg.TRAIN.SNAPSHOT_ITERS / cfg.NUM_GPUS)
+    CHECKPOINT_PERIOD = cfg.TRAIN.SNAPSHOT_ITERS #int(cfg.TRAIN.SNAPSHOT_ITERS / cfg.NUM_GPUS)
 
     # Set index for decay steps
     decay_steps_ind = None
@@ -505,7 +565,6 @@ def main():
             optimizer.zero_grad()
             for inner_iter in range(args.iter_size):
                 input_data = get_input_data(cfg.RNN.RNN_ON, cfg.RNN.WIN_LEN)
-                
                 net_outputs = maskRCNN(**input_data)
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']
@@ -527,6 +586,8 @@ def main():
 
     except (RuntimeError, KeyboardInterrupt):
         del dataiterator
+        if det_dataiterator:
+            del det_dataiterator
         logger.info('Save ckpt on exception ...')
         save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
         logger.info('Save ckpt done.')

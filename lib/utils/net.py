@@ -162,8 +162,10 @@ def load_ckpt(model, ckpt):
     for name in ckpt:
         if name.startswith('rnn_cell'):
             state_dict[name] = ckpt[name]
+            logger.info('loading '+name)
         elif mapping[name]:
             state_dict[name] = ckpt[name]
+            logger.info('loading '+name)
     model.load_state_dict(state_dict, strict=False)
 
 

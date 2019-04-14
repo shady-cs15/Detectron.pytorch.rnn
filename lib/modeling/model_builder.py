@@ -384,6 +384,8 @@ class Generalized_RCNN_with_RNN(Generalized_RCNN):
             raise Exception
         super().__init__()
         self.rnn_cell = get_func(cfg.RNN.RNN_CELL)()
+        self.projector = None if cfg.RNN.FEAT_CHANNELS == cfg.RNN.MEM_CHANNELS \
+                            else get_func('RNN.projector')()
 
     # main forward method to be called
     def forward(self, data, im_info, roidb=None, memory_init=None, **rpn_kwargs):
@@ -414,9 +416,11 @@ class Generalized_RCNN_with_RNN(Generalized_RCNN):
         exemplar = blob_convs[0]
         
         # initialize memory
+        assert exemplar.shape[1] == cfg.RNN.FEAT_CHANNELS, 'RNN.FEAT_CHANNELS should be %d' %exemplar.shape[1]
+        memory_shape = (exemplar.shape[0], cfg.RNN.MEM_CHANNELS, exemplar.shape[2], exemplar.shape[3]) 
         if memory_init is None:
             memory = torch.tensor((), dtype=exemplar.dtype).new_zeros\
-                                    (exemplar.shape, device=exemplar.get_device())
+                                    (memory_shape, device=exemplar.get_device())
         else:
             memory = memory_init
 
@@ -428,7 +432,10 @@ class Generalized_RCNN_with_RNN(Generalized_RCNN):
         memories = []
         for t in range(time_steps):
             blob_conv = blob_convs[t]
-            memory = self.rnn_cell(blob_conv, memory)
+            if not self.projector:
+                memory = self.rnn_cell(blob_conv, memory)
+            else:
+                raise NotImplementedError
             memories.append(memory)
             
             if im_info is None:

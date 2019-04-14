@@ -1,6 +1,12 @@
 import torch.nn as nn
 import torch
 
+from core.config import cfg
+
+fc = cfg.RNN.FEAT_CHANNELS
+mc = cfg.RNN.MEM_CHANNELS
+
+
 class vanilla_resnet50_conv4_v0(nn.Module):
     def __init__(self):
         super().__init__()
@@ -41,16 +47,16 @@ class vanilla_resnet50_conv4_red_4x_v0(nn.Module):
         return M_new
 
 
-class stmm_resnet50_conv4_v0(nn.Module):
+class basic_stmm(nn.Module):
     # No MatchTrans, No reduced propagation
     def __init__(self):
         super().__init__()
-        self.wz = nn.Conv2d(1024, 1024, 3, 1, 1)
-        self.wr = nn.Conv2d(1024, 1024, 3, 1, 1)
-        self.w = nn.Conv2d(1024, 1024, 3, 1, 1)
-        self.uz = nn.Conv2d(1024, 1024, 3, 1, 1)
-        self.ur = nn.Conv2d(1024, 1024, 3, 1, 1)
-        self.u = nn.Conv2d(1024, 1024, 3, 1, 1)
+        self.wz = nn.Conv2d(fc, mc, 3, 1, 1)
+        self.wr = nn.Conv2d(fc, mc, 3, 1, 1)
+        self.w = nn.Conv2d(fc, mc, 3, 1, 1)
+        self.uz = nn.Conv2d(mc, mc, 3, 1, 1)
+        self.ur = nn.Conv2d(mc, mc, 3, 1, 1)
+        self.u = nn.Conv2d(mc, mc, 3, 1, 1)
         self.relu = nn.ReLU()
 
     def forward(self, F, M):
@@ -59,8 +65,8 @@ class stmm_resnet50_conv4_v0(nn.Module):
         z_mu, z_sigma = torch.mean(z_unnormalized), torch.std(z_unnormalized)
         r_mu, r_sigma = torch.mean(r_unnormalized), torch.std(r_unnormalized)
         z_scale, r_scale = z_mu + 3*z_sigma, r_mu + 3*r_sigma
-        z = z_unnormalized / z_scale
-        r = r_unnormalized / r_scale
+        z = torch.clamp(z_unnormalized, 0, z_scale.item()) / z_scale
+        r = torch.clamp(r_unnormalized, 0, r_scale.item()) / r_scale
         M_cand = self.relu(self.w(F) + self.u(M*r))
         M = (1-z)*M + z*M_cand
         return M
@@ -108,3 +114,12 @@ class stmm_r50c4_rp4x_v0(nn.Module):
         M_red_half_new_upsampled = nn.functional.pad(self.unpool(M_red_half_new), pad0)
         M_new = self.relu(self.s1_w(F) + self.s1_u(M_red_half_new_upsampled))
         return M_new
+
+
+class projector(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.proj = nn.Conv2d(mc, fc, 1, 1, 0)
+    
+    def forward(self, X):
+        return self.proj(X)

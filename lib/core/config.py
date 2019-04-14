@@ -33,12 +33,22 @@ cfg = __C
 # ---------------------------------------------------------------------------- #
 __C.RNN = AttrDict()
 
-__C.RNN.RNN_ON = True
+__C.RNN.RNN_ON = False
 __C.RNN.WIN_LEN = 5
 __C.RNN.BATCH_SIZE = 2
-__C.RNN.RNN_CELL = 'RNN.stmm_r50c4_rp4x_v0'
+__C.RNN.RNN_CELL = 'RNN.basic_stmm'
 __C.RNN.ALLOWED_GAP = 10
 __C.RNN.SKIP_FRAMES = 5
+# no. of channels in backbone feature, eg. resnet 50 conv 4 has 1024
+__C.RNN.FEAT_CHANNELS = 1024
+__C.RNN.MEM_CHANNELS = 1024
+
+# ---------------------------------------------------------------------------- #
+# Support dataset options
+# ---------------------------------------------------------------------------- #
+__C.SUPPORT = AttrDict()
+__C.SUPPORT.use_DET = False
+__C.SUPPORT.SAMPLE_PROB = 0.1
 
 # ---------------------------------------------------------------------------- #
 # Training options
@@ -183,7 +193,7 @@ __C.DATA_LOADER = AttrDict()
 # Number of Python threads to use for the data loader (warning: using too many
 # threads can cause GIL-based interference with Python Ops leading to *slower*
 # training; 4 seems to be the sweet spot in our experience)
-__C.DATA_LOADER.NUM_THREADS = 1
+__C.DATA_LOADER.NUM_THREADS = 0
 
 
 # ---------------------------------------------------------------------------- #
@@ -234,7 +244,7 @@ __C.TEST.RPN_MIN_SIZE = 0
 
 # Maximum number of detections to return per image (100 is based on the limit
 # established for the COCO dataset)
-__C.TEST.DETECTIONS_PER_IM = 100
+__C.TEST.DETECTIONS_PER_IM = 300
 
 # Minimum score threshold (assuming scores in a [0, 1] range); a value chosen to
 # balance obtaining high recall with not having too many low precision
@@ -251,7 +261,9 @@ __C.TEST.COMPETITION_MODE = True
 # COCO API to get COCO style AP on PASCAL VOC)
 __C.TEST.FORCE_JSON_DATASET_EVAL = False
 
-__C.TEST.FORCE_VOC_STYLE_EVAL = True
+__C.TEST.FORCE_VOC_STYLE_EVAL = False
+
+__C.TEST.FORCE_IMNET_VID_STYLE_EVAL = True
 
 # [Inferred value; do not set directly in a config]
 # Indicates if precomputed proposals are used at test time

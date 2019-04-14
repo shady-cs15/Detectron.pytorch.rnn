@@ -196,6 +196,7 @@ class MinibatchSampler(torch_sampler.Sampler):
                 if cfg.RNN.SKIP_FRAMES > 0:
                     indices = np.take(indices, np.arange(0, win_len, cfg.RNN.SKIP_FRAMES+1), axis=2)
                 indices = indices.transpose(0, 2, 1)
+                #print(indices)
                 rand_perm = indices.flatten()
             else:
                 rand_perm = npr.permutation(self.num_data)

@@ -45,6 +45,7 @@ from utils.logging import send_email
 import datasets.cityscapes_json_dataset_evaluator as cs_json_dataset_evaluator
 import datasets.json_dataset_evaluator as json_dataset_evaluator
 import datasets.voc_dataset_evaluator as voc_dataset_evaluator
+import datasets.imnet_vid_evaluator as imnet_vid_dataset_evaluator
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,8 @@ def evaluate_boxes(dataset, all_boxes, output_dir, use_matlab=False):
     """Evaluate bounding box detection."""
     logger.info('Evaluating detections')
     not_comp = not cfg.TEST.COMPETITION_MODE
-    assert cfg.TEST.FORCE_JSON_DATASET_EVAL ^ cfg.TEST.FORCE_VOC_STYLE_EVAL
+    assert cfg.TEST.FORCE_JSON_DATASET_EVAL ^ cfg.TEST.FORCE_VOC_STYLE_EVAL\
+                                             ^ cfg.TEST.FORCE_IMNET_VID_STYLE_EVAL
     if _use_json_dataset_evaluator(dataset):
         coco_eval = json_dataset_evaluator.evaluate_boxes(
             dataset, all_boxes, output_dir, use_salt=not_comp, cleanup=not_comp
@@ -93,6 +95,11 @@ def evaluate_boxes(dataset, all_boxes, output_dir, use_matlab=False):
             dataset, all_boxes, output_dir, use_matlab=use_matlab
         )
         box_results = _voc_eval_to_box_results(voc_eval)
+    elif _use_imnet_vid_evaluator(dataset):
+        imnet_vid_eval = imnet_vid_dataset_evaluator.evaluate_boxes(
+            dataset, all_boxes, output_dir, use_matlab=use_matlab
+        )
+        box_results = _imnet_vid_eval_to_box_results(imnet_vid_eval)
     else:
         raise NotImplementedError(
             'No evaluator for dataset: {}'.format(dataset.name)
@@ -257,6 +264,9 @@ def _use_voc_evaluator(dataset):
     """Check if the dataset uses the PASCAL VOC dataset evaluator."""
     return dataset.name[:4] == 'voc_' or cfg.TEST.FORCE_VOC_STYLE_EVAL
 
+def _use_imnet_vid_evaluator(dataset):
+    """Check if the dataset uses the IMNET VID dataset evaluator."""
+    return cfg.TEST.FORCE_IMNET_VID_STYLE_EVAL
 
 # Indices in the stats array for COCO boxes and masks
 COCO_AP = 0
@@ -320,6 +330,11 @@ def _voc_eval_to_box_results(voc_eval):
 def _cs_eval_to_mask_results(cs_eval):
     # Not supported (return empty results)
     return _empty_mask_results()
+
+
+def _imnet_vid_eval_to_box_results(iv_eval):
+    # Not supported (return empty results)
+    return _empty_box_results()
 
 
 def _empty_box_results():
