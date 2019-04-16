@@ -33,12 +33,13 @@ cfg = __C
 # ---------------------------------------------------------------------------- #
 __C.RNN = AttrDict()
 
-__C.RNN.RNN_ON = False
+__C.RNN.RNN_ON = True
 __C.RNN.WIN_LEN = 5
 __C.RNN.BATCH_SIZE = 2
-__C.RNN.RNN_CELL = 'RNN.basic_stmm'
+__C.RNN.RNN_CELL = 'RNN.stmm_rp4x'
 __C.RNN.ALLOWED_GAP = 10
 __C.RNN.SKIP_FRAMES = 5
+__C.RNN.RED_LEVELS = 2
 # no. of channels in backbone feature, eg. resnet 50 conv 4 has 1024
 __C.RNN.FEAT_CHANNELS = 1024
 __C.RNN.MEM_CHANNELS = 1024
@@ -47,7 +48,7 @@ __C.RNN.MEM_CHANNELS = 1024
 # Support dataset options
 # ---------------------------------------------------------------------------- #
 __C.SUPPORT = AttrDict()
-__C.SUPPORT.use_DET = False
+__C.SUPPORT.use_DET = True
 __C.SUPPORT.SAMPLE_PROB = 0.1
 
 # ---------------------------------------------------------------------------- #

@@ -42,6 +42,16 @@ logger = logging.getLogger(__name__)
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
 
+cpa  = torch.ones([15, 15 ,15, 15], dtype=torch.float32)
+feat = torch.ones([1, 5, 15, 15], dtype=torch.float32)
+op = torch.ones([1, 5, 15, 15], dtype=torch.float32)
+masked_cpa = torch.ones([1, 5, 15, 15], dtype=torch.float32)
+pad = 3
+
+from model.nms.nms_gpu import nms_gpu
+from model.assemble.assemble_gpu import assemble_gpu
+import pdb; pdb.set_trace();
+assemble_gpu(cpa, feat, op, masked_cpa, pad)
 
 def parse_args():
     """Parse input arguments"""
